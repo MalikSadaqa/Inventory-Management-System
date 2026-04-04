@@ -1,0 +1,82 @@
+# =========================
+# 🐍 Python (FastAPI backend)
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+
+# SQLite DB (if used locally)
+*.db
+*.sqlite3
+
+# Alembic
+migrations/versions/*.pyc
+
+# =========================
+# ⚛️ Node / React (frontend)
+# =========================
+node_modules/
+dist/
+build/
+
+# Vite
+.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# 🔐 Environment variables (IMPORTANT)
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# 🧠 IDEs & Editors
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# 💻 OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# 🐳 Docker
+# =========================
+*.pid
+*.seed
+*.pid.lock
+
+# =========================
+# 📦 Misc
+# =========================
+coverage/
+htmlcov/
+.pytest_cache/
+
+# Temporary files
+*.swp
+*.swo
+*~
