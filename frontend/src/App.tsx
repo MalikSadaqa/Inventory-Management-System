@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 
 import { getHealth, type HealthResponse } from './api'
+import CustomerDetail from './pages/CustomerDetail'
+import Customers from './pages/Customers'
+import { navigateTo } from './utils'
 
 type LoadState = 'loading' | 'success' | 'error'
 
+function getCurrentPath(): string {
+  return window.location.pathname
+}
+
 function App() {
+  const [path, setPath] = useState(getCurrentPath)
   const [state, setState] = useState<LoadState>('loading')
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -28,84 +36,103 @@ function App() {
     void loadHealth()
   }, [])
 
+  useEffect(() => {
+    const handleLocationChange = () => setPath(getCurrentPath())
+
+    window.addEventListener('popstate', handleLocationChange)
+    return () => window.removeEventListener('popstate', handleLocationChange)
+  }, [])
+
+  const renderPage = () => {
+    if (path === '/' || path === '') {
+      navigateTo('/customers')
+      return null
+    }
+
+    if (path === '/customers') {
+      return <Customers />
+    }
+
+    if (/^\/customers\/\d+$/.test(path)) {
+      return <CustomerDetail />
+    }
+
+    return <Customers />
+  }
+
   return (
-    <main
+    <div
       style={{
         minHeight: '100vh',
         margin: 0,
-        display: 'grid',
-        placeItems: 'center',
         background:
-          'linear-gradient(135deg, rgba(238,242,255,1) 0%, rgba(248,250,252,1) 55%, rgba(226,232,240,1) 100%)',
+          'linear-gradient(160deg, #f8fafc 0%, #ecfeff 45%, #e0f2fe 100%)',
         color: '#0f172a',
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: '"Segoe UI", sans-serif',
         padding: '24px',
       }}
     >
-      <section
+      <div
         style={{
-          width: '100%',
-          maxWidth: '560px',
-          borderRadius: '20px',
-          backgroundColor: '#ffffff',
-          boxShadow: '0 24px 60px rgba(15, 23, 42, 0.12)',
-          padding: '32px',
+          maxWidth: '1100px',
+          margin: '0 auto',
         }}
       >
-        <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
-          Inventory Management System
-        </p>
-        <h1 style={{ margin: '8px 0 24px', fontSize: '2rem' }}>Milestone 0</h1>
-
-        {state === 'loading' && (
-          <p style={{ margin: 0, fontSize: '1rem' }}>Checking backend health...</p>
-        )}
-
-        {state === 'error' && (
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '16px',
+            alignItems: 'center',
+            marginBottom: '24px',
+            padding: '20px 24px',
+            borderRadius: '20px',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 20px 50px rgba(15, 23, 42, 0.08)',
+          }}
+        >
           <div>
-            <p style={{ margin: '0 0 12px', fontSize: '1rem', color: '#b91c1c' }}>
-              Backend check failed
+            <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
+              Inventory Management System
             </p>
-            <pre
-              style={{
-                margin: 0,
-                padding: '16px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '12px',
-                overflowX: 'auto',
-              }}
-            >
-              {JSON.stringify({ error }, null, 2)}
-            </pre>
+            <h1 style={{ margin: '8px 0 0', fontSize: '2rem' }}>Customers</h1>
           </div>
-        )}
-
-        {state === 'success' && health && (
-          <div>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <p
               style={{
-                margin: '0 0 12px',
-                fontSize: '1rem',
-                color: health.status === 'ok' ? '#166534' : '#b45309',
-              }}
-            >
-              Backend responded successfully
-            </p>
-            <pre
-              style={{
                 margin: 0,
-                padding: '16px',
-                backgroundColor: '#f8fafc',
-                borderRadius: '12px',
-                overflowX: 'auto',
+                padding: '10px 14px',
+                borderRadius: '999px',
+                backgroundColor:
+                  state === 'success' && health?.status === 'ok' ? '#dcfce7' : '#fee2e2',
+                color: state === 'success' && health?.status === 'ok' ? '#166534' : '#b91c1c',
+                fontSize: '0.9rem',
               }}
             >
-              {JSON.stringify(health, null, 2)}
-            </pre>
-          </div>
-        )}
-      </section>
-    </main>
+              {state === 'loading' && 'Checking backend'}
+              {state === 'error' && `Backend issue: ${error}`}
+              {state === 'success' && health && `Backend ${health.status} / DB ${health.database}`}
+            </p>
+            <a
+              href="/customers"
+              onClick={(event) => {
+                event.preventDefault()
+                navigateTo('/customers')
+              }}
+              style={{
+                color: path.startsWith('/customers') ? '#0f172a' : '#475569',
+                textDecoration: 'none',
+                fontWeight: 600,
+              }}
+            >
+              Customers
+            </a>
+          </nav>
+        </header>
+
+        {renderPage()}
+      </div>
+    </div>
   )
 }
 
