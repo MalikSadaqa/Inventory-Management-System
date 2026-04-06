@@ -2,6 +2,11 @@ export function formatDateTime(value: string): string {
   return new Date(value).toLocaleString()
 }
 
+export function formatMoney(value: string | number): string {
+  const amount = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(amount) ? amount.toFixed(2) : String(value)
+}
+
 export function navigateTo(path: string): void {
   if (window.location.pathname === path) {
     return

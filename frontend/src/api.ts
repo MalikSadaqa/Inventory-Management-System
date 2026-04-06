@@ -25,6 +25,61 @@ export type CustomerPayload = {
   email?: string | null
 }
 
+export type CategoryListItem = {
+  id: number
+  name: string
+  parent_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export type CategoryTreeNode = {
+  id: number
+  name: string
+  parent_id: number | null
+  children: CategoryTreeNode[]
+  is_leaf: boolean
+}
+
+export type CategoryPayload = {
+  name: string
+  parent_id?: number | null
+}
+
+export type ItemListItem = {
+  id: number
+  name: string
+  price: string
+  cost: string
+  category_id: number
+  details: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ItemDetail = {
+  id: number
+  name: string
+  price: string
+  cost: string
+  details: string | null
+  category: {
+    id: number
+    name: string
+  }
+  category_path: string[]
+  created_at: string
+  updated_at: string
+}
+
+export type ItemPayload = {
+  name: string
+  price: string
+  cost: string
+  category_id: number
+  details?: string | null
+}
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://127.0.0.1:8000'
 
@@ -93,4 +148,100 @@ export async function updateCustomer(
   })
 
   return parseJsonResponse<CustomerListItem>(response)
+}
+
+export async function getCategories(): Promise<CategoryListItem[]> {
+  const response = await fetch(`${API_BASE_URL}/categories`)
+  return parseJsonResponse<CategoryListItem[]>(response)
+}
+
+export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
+  const response = await fetch(`${API_BASE_URL}/categories/tree`)
+  return parseJsonResponse<CategoryTreeNode[]>(response)
+}
+
+export async function createCategory(payload: CategoryPayload): Promise<CategoryListItem> {
+  const response = await fetch(`${API_BASE_URL}/categories`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return parseJsonResponse<CategoryListItem>(response)
+}
+
+export async function updateCategory(
+  categoryId: number,
+  payload: Partial<CategoryPayload>,
+): Promise<CategoryListItem> {
+  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return parseJsonResponse<CategoryListItem>(response)
+}
+
+export async function deleteCategory(categoryId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    await parseJsonResponse(response)
+  }
+}
+
+export async function getItems(
+  search?: string,
+  categoryId?: number | null,
+): Promise<ItemListItem[]> {
+  const query = new URLSearchParams()
+  if (search?.trim()) {
+    query.set('search', search.trim())
+  }
+  if (categoryId) {
+    query.set('category_id', String(categoryId))
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  const response = await fetch(`${API_BASE_URL}/items${suffix}`)
+  return parseJsonResponse<ItemListItem[]>(response)
+}
+
+export async function getItem(itemId: number): Promise<ItemDetail> {
+  const response = await fetch(`${API_BASE_URL}/items/${itemId}`)
+  return parseJsonResponse<ItemDetail>(response)
+}
+
+export async function createItem(payload: ItemPayload): Promise<ItemListItem> {
+  const response = await fetch(`${API_BASE_URL}/items`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return parseJsonResponse<ItemListItem>(response)
+}
+
+export async function updateItem(
+  itemId: number,
+  payload: Partial<ItemPayload>,
+): Promise<ItemListItem> {
+  const response = await fetch(`${API_BASE_URL}/items/${itemId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return parseJsonResponse<ItemListItem>(response)
 }

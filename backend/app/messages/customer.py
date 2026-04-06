@@ -4,25 +4,22 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.utils import normalize_optional_email, normalize_required_name
+
 
 class CustomerBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     email: str | None = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return normalize_required_name(value)
+
     @field_validator("email")
     @classmethod
     def validate_email(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-
-        normalized = value.strip()
-        if not normalized:
-            return None
-
-        if "@" not in normalized or normalized.startswith("@") or normalized.endswith("@"):
-            raise ValueError("Email must be a valid email address.")
-
-        return normalized
+        return normalize_optional_email(value)
 
 
 class CustomerCreate(CustomerBase):
@@ -32,6 +29,13 @@ class CustomerCreate(CustomerBase):
 class CustomerUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     email: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return normalize_required_name(value)
 
     @field_validator("email")
     @classmethod

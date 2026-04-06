@@ -1,14 +1,29 @@
 import { useEffect, useState } from 'react'
 
 import { getHealth, type HealthResponse } from './api'
+import Categories from './pages/Categories'
 import CustomerDetail from './pages/CustomerDetail'
 import Customers from './pages/Customers'
+import ItemDetail from './pages/ItemDetail'
+import Items from './pages/Items'
 import { navigateTo } from './utils'
 
 type LoadState = 'loading' | 'success' | 'error'
 
 function getCurrentPath(): string {
   return window.location.pathname
+}
+
+function getPageTitle(path: string): string {
+  if (path.startsWith('/categories')) {
+    return 'Categories'
+  }
+
+  if (path.startsWith('/items')) {
+    return 'Items'
+  }
+
+  return 'Customers'
 }
 
 function App() {
@@ -57,6 +72,18 @@ function App() {
       return <CustomerDetail />
     }
 
+    if (path === '/categories') {
+      return <Categories />
+    }
+
+    if (path === '/items') {
+      return <Items />
+    }
+
+    if (/^\/items\/\d+$/.test(path)) {
+      return <ItemDetail />
+    }
+
     return <Customers />
   }
 
@@ -95,9 +122,9 @@ function App() {
             <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
               Inventory Management System
             </p>
-            <h1 style={{ margin: '8px 0 0', fontSize: '2rem' }}>Customers</h1>
+            <h1 style={{ margin: '8px 0 0', fontSize: '2rem' }}>{getPageTitle(path)}</h1>
           </div>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
             <p
               style={{
                 margin: 0,
@@ -113,20 +140,27 @@ function App() {
               {state === 'error' && `Backend issue: ${error}`}
               {state === 'success' && health && `Backend ${health.status} / DB ${health.database}`}
             </p>
-            <a
-              href="/customers"
-              onClick={(event) => {
-                event.preventDefault()
-                navigateTo('/customers')
-              }}
-              style={{
-                color: path.startsWith('/customers') ? '#0f172a' : '#475569',
-                textDecoration: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Customers
-            </a>
+            {[
+              { href: '/customers', label: 'Customers' },
+              { href: '/categories', label: 'Categories' },
+              { href: '/items', label: 'Items' },
+            ].map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={(event) => {
+                  event.preventDefault()
+                  navigateTo(link.href)
+                }}
+                style={{
+                  color: path.startsWith(link.href) ? '#0f172a' : '#475569',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                }}
+              >
+                {link.label}
+              </a>
+            ))}
           </nav>
         </header>
 

@@ -1,27 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
 
-class Item(Base):
-    __tablename__ = "items"
+class Category(Base):
+    __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
-    category_id: Mapped[int] = mapped_column(
-        ForeignKey("categories.id", ondelete="RESTRICT"),
-        nullable=False,
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
-    details: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -34,4 +30,13 @@ class Item(Base):
         onupdate=func.now(),
     )
 
-    category: Mapped["Category"] = relationship("Category", back_populates="items")
+    parent: Mapped[Category | None] = relationship(
+        "Category",
+        remote_side="Category.id",
+        back_populates="children",
+    )
+    children: Mapped[list[Category]] = relationship(
+        "Category",
+        back_populates="parent",
+    )
+    items: Mapped[list["Item"]] = relationship("Item", back_populates="category")
