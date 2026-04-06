@@ -41,7 +41,7 @@ function InvoiceLineEditor({
         borderRadius: '18px',
         padding: '18px',
         display: 'grid',
-        gap: '16px',
+        gap: '14px',
         backgroundColor: '#f8fafc',
       }}
     >
@@ -57,7 +57,7 @@ function InvoiceLineEditor({
         <div>
           <h3 style={{ margin: 0, fontSize: '1rem' }}>Line {index + 1}</h3>
           <p style={{ margin: '6px 0 0', color: '#475569' }}>
-            Select an item and quantity for this invoice line.
+            Search the catalog, then set the invoice quantity.
           </p>
         </div>
         <button
@@ -79,8 +79,9 @@ function InvoiceLineEditor({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 2fr) minmax(160px, 0.8fr) minmax(180px, 0.8fr)',
+          gridTemplateColumns: 'minmax(0, 2.2fr) minmax(140px, 0.8fr) minmax(180px, 0.9fr)',
           gap: '16px',
+          alignItems: 'start',
         }}
       >
         <EntityAutocomplete
@@ -131,9 +132,10 @@ function InvoiceLineEditor({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
           gap: '12px',
           color: '#475569',
+          paddingTop: '2px',
         }}
       >
         <div>
@@ -145,7 +147,7 @@ function InvoiceLineEditor({
         <div>
           <div style={{ fontSize: '0.85rem' }}>Unit Price</div>
           <div style={{ marginTop: '6px', color: '#0f172a', fontWeight: 600 }}>
-            {line.item ? formatMoney(line.item.price) : '0.00'}
+            {line.item ? formatMoney(line.item.price) : formatMoney(0)}
           </div>
         </div>
         <div>

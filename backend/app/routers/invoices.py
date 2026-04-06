@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.messages.invoice import InvoiceCreate, InvoiceDetailRead, InvoiceSummaryRead
-from app.services.invoices import create_invoice, get_invoice_by_id, list_invoices
+from app.services.invoices import (
+    create_invoice,
+    get_invoice_by_id,
+    get_invoice_excel,
+    get_invoice_pdf,
+    list_invoices,
+)
 from app.utils import BusinessRuleError, NotFoundError
 
 
@@ -44,3 +50,57 @@ def get_invoice_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
     return InvoiceDetailRead.model_validate(invoice)
+
+
+@router.get("/{invoice_id}/pdf")
+def get_invoice_pdf_endpoint(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        invoice, pdf_bytes = get_invoice_pdf(db, invoice_id)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    filename = f'{invoice.invoice_number}.pdf'
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+@router.get("/{invoice_id}/pdf/download")
+def download_invoice_pdf_endpoint(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        invoice, pdf_bytes = get_invoice_pdf(db, invoice_id)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    filename = f'{invoice.invoice_number}.pdf'
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{invoice_id}/excel")
+def export_invoice_excel_endpoint(
+    invoice_id: int,
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        invoice, excel_bytes = get_invoice_excel(db, invoice_id)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+    filename = f'{invoice.invoice_number}.xlsx'
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

@@ -23,6 +23,7 @@ class InvoiceCustomerRead(BaseModel):
     id: int
     name: str
     email: str | None
+    phone: str | None
 
 
 class InvoiceLineRead(BaseModel):

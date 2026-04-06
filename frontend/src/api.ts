@@ -133,6 +133,7 @@ export type InvoiceDetail = InvoiceSummary & {
     id: number
     name: string
     email: string | null
+    phone: string | null
   }
   lines: InvoiceLine[]
 }
@@ -157,6 +158,14 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   }
 
   return (await response.json()) as T
+}
+
+async function fetchBlobResponse(response: Response): Promise<Blob> {
+  if (!response.ok) {
+    await parseJsonResponse(response)
+  }
+
+  return response.blob()
 }
 
 export async function getHealth(): Promise<HealthResponse> {
@@ -348,4 +357,34 @@ export async function createInvoice(payload: InvoicePayload): Promise<InvoiceDet
   })
 
   return parseJsonResponse<InvoiceDetail>(response)
+}
+
+export function getInvoicePdfUrl(invoiceId: number): string {
+  return `${API_BASE_URL}/invoices/${invoiceId}/pdf`
+}
+
+export async function downloadInvoiceExcel(invoiceId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/excel`)
+  const blob = await fetchBlobResponse(response)
+  downloadBlob(blob, getFilenameFromDisposition(response.headers.get('content-disposition')) || `invoice-${invoiceId}.xlsx`)
+}
+
+function getFilenameFromDisposition(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  const match = value.match(/filename="([^"]+)"/i)
+  return match?.[1] ?? null
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const objectUrl = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0)
 }

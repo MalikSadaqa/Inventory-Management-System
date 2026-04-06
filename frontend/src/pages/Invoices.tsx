@@ -150,6 +150,10 @@ function Invoices() {
     setLines((current) => (current.length > 1 ? current.filter((line) => line.key !== key) : current))
   }
 
+  const handleAddLine = () => {
+    setLines((current) => [...current, createEmptyLine()])
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -268,35 +272,73 @@ function Invoices() {
                   Item prices shown here are previews. The backend stores immutable snapshots.
                 </p>
               </div>
+              <div
+                style={{
+                  alignSelf: 'start',
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  backgroundColor: '#f8fafc',
+                  color: '#475569',
+                  fontSize: '0.9rem',
+                }}
+              >
+                {lines.length} line{lines.length === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gap: '14px',
+                maxHeight: '540px',
+                overflowY: 'auto',
+                paddingRight: '4px',
+              }}
+            >
+              {lines.map((line, index) => (
+                <InvoiceLineEditor
+                  key={line.key}
+                  line={line}
+                  index={index}
+                  onItemSelect={handleLineItemSelect}
+                  onItemClear={handleLineItemClear}
+                  onQuantityChange={handleLineQuantityChange}
+                  onRemove={handleRemoveLine}
+                  loadItems={itemLoader}
+                />
+              ))}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '16px',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                borderTop: '1px solid #e2e8f0',
+                paddingTop: '16px',
+              }}
+            >
+              <p style={{ margin: 0, color: '#475569' }}>
+                Keep adding rows from here when you are working through larger invoices.
+              </p>
               <button
                 type="button"
-                onClick={() => setLines((current) => [...current, createEmptyLine()])}
+                onClick={handleAddLine}
                 style={{
-                  border: '1px solid #bae6fd',
-                  backgroundColor: '#f0f9ff',
+                  border: '1px solid #0f766e',
+                  backgroundColor: '#0f766e',
                   borderRadius: '12px',
-                  padding: '10px 14px',
+                  padding: '10px 16px',
                   cursor: 'pointer',
-                  color: '#075985',
-                  fontWeight: 600,
+                  color: '#ffffff',
+                  fontWeight: 700,
                 }}
               >
                 Add Line
               </button>
             </div>
-
-            {lines.map((line, index) => (
-              <InvoiceLineEditor
-                key={line.key}
-                line={line}
-                index={index}
-                onItemSelect={handleLineItemSelect}
-                onItemClear={handleLineItemClear}
-                onQuantityChange={handleLineQuantityChange}
-                onRemove={handleRemoveLine}
-                loadItems={itemLoader}
-              />
-            ))}
           </div>
 
           <div

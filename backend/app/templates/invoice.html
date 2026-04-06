@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ invoice.invoice_number }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm;
+      }
+
+      :root {
+        color: #0f172a;
+        font-family: "DejaVu Sans", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .header,
+      .meta-grid,
+      .totals-grid {
+        width: 100%;
+      }
+
+      .header {
+        margin-bottom: 22px;
+      }
+
+      .brand {
+        font-size: 24px;
+        font-weight: 700;
+        color: #0f766e;
+      }
+
+      .subtitle,
+      .muted {
+        color: #475569;
+      }
+
+      .meta-grid {
+        border-collapse: collapse;
+        margin-bottom: 18px;
+      }
+
+      .meta-grid td {
+        width: 50%;
+        vertical-align: top;
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+      }
+
+      .meta-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+      }
+
+      .meta-value {
+        margin-top: 6px;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      table.lines {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+
+      .lines th {
+        background: #e2e8f0;
+        color: #0f172a;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 10px;
+        text-align: left;
+      }
+
+      .lines td {
+        border-bottom: 1px solid #e2e8f0;
+        padding: 10px;
+        vertical-align: top;
+      }
+
+      .amount {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .totals {
+        margin-left: auto;
+        width: 280px;
+        border-collapse: collapse;
+      }
+
+      .totals td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .totals .grand-total td {
+        font-size: 15px;
+        font-weight: 700;
+        border-top: 2px solid #0f172a;
+        border-bottom: none;
+      }
+    </style>
+  </head>
+  <body>
+    <table class="header">
+      <tr>
+        <td>
+          <div class="brand">Invoice</div>
+          <div class="subtitle">Inventory Management System</div>
+        </td>
+        <td style="text-align: right">
+          <div class="meta-label">Generated</div>
+          <div>{{ generated_at }}</div>
+        </td>
+      </tr>
+    </table>
+
+    <table class="meta-grid">
+      <tr>
+        <td>
+          <div class="meta-label">Invoice Number</div>
+          <div class="meta-value">{{ invoice.invoice_number }}</div>
+        </td>
+        <td>
+          <div class="meta-label">Invoice Date</div>
+          <div class="meta-value">{{ invoice.invoice_date }}</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="meta-label">Customer Name</div>
+          <div class="meta-value">{{ invoice.customer.name }}</div>
+        </td>
+        <td>
+          <div class="meta-label">Customer Email</div>
+          <div class="meta-value">{{ invoice.customer.email }}</div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2">
+          <div class="meta-label">Customer Phone</div>
+          <div class="meta-value">{{ invoice.customer.phone or "Not provided" }}</div>
+        </td>
+      </tr>
+    </table>
+
+    <table class="lines">
+      <thead>
+        <tr>
+          <th>Item Snapshot</th>
+          <th>Category Snapshot</th>
+          <th>Quantity</th>
+          <th>Unit Price</th>
+          <th>Line Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in invoice.lines %}
+        <tr>
+          <td>{{ line.item_name_snapshot }}</td>
+          <td>{{ line.category_path_snapshot }}</td>
+          <td>{{ line.quantity }}</td>
+          <td class="amount">{{ line.unit_price_snapshot }}</td>
+          <td class="amount">{{ line.line_subtotal }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <table class="totals">
+      <tr>
+        <td>Total Quantity</td>
+        <td class="amount">{{ invoice.total_quantity }}</td>
+      </tr>
+      <tr>
+        <td>Subtotal</td>
+        <td class="amount">{{ invoice.subtotal }}</td>
+      </tr>
+      <tr>
+        <td>Tax Rate</td>
+        <td class="amount">{{ invoice.tax_rate }}</td>
+      </tr>
+      <tr>
+        <td>Tax Amount</td>
+        <td class="amount">{{ invoice.tax_amount }}</td>
+      </tr>
+      <tr class="grand-total">
+        <td>Total</td>
+        <td class="amount">{{ invoice.total }}</td>
+      </tr>
+    </table>
+  </body>
+</html>

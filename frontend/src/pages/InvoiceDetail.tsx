@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 
-import { getInvoice, type InvoiceDetail as InvoiceDetailResponse } from '../api'
+import {
+  downloadInvoiceExcel,
+  getInvoicePdfUrl,
+  getInvoice,
+  type InvoiceDetail as InvoiceDetailResponse,
+} from '../api'
 import { formatDate, formatDateTime, formatMoney, formatPercent, navigateTo } from '../utils'
 
 type LoadState = 'loading' | 'success' | 'error'
@@ -11,6 +16,7 @@ function InvoiceDetail() {
   const [invoice, setInvoice] = useState<InvoiceDetailResponse | null>(null)
   const [state, setState] = useState<LoadState>('loading')
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     const parsedId = Number(invoiceId)
@@ -115,6 +121,56 @@ function InvoiceDetail() {
           >
             <div
               style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              <div>
+                <div style={{ color: '#475569', fontSize: '0.9rem' }}>Invoice actions</div>
+                <div style={{ marginTop: '6px', color: '#0f172a', fontWeight: 600 }}>
+                  Open the invoice PDF in a new tab or export the invoice workbook.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActionError(null)
+                    const pdfWindow = window.open(getInvoicePdfUrl(invoice.id), '_blank', 'noopener,noreferrer')
+                    if (!pdfWindow) {
+                      setActionError('Failed to open PDF. Please allow pop-ups for this site.')
+                    }
+                  }}
+                  style={secondaryButtonStyle}
+                >
+                  View PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setActionError(null)
+                    try {
+                      await downloadInvoiceExcel(invoice.id)
+                    } catch (downloadError) {
+                      setActionError(
+                        downloadError instanceof Error ? downloadError.message : 'Failed to export Excel.',
+                      )
+                    }
+                  }}
+                  style={primaryButtonStyle}
+                >
+                  Export Excel
+                </button>
+              </div>
+            </div>
+
+            {actionError && <p style={{ margin: 0, color: '#b91c1c' }}>{actionError}</p>}
+
+            <div
+              style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
                 gap: '20px',
@@ -133,6 +189,9 @@ function InvoiceDetail() {
                 <div style={{ marginTop: '8px', fontWeight: 700 }}>{invoice.customer.name}</div>
                 <div style={{ marginTop: '4px', color: '#475569' }}>
                   {invoice.customer.email || 'No email'}
+                </div>
+                <div style={{ marginTop: '4px', color: '#475569' }}>
+                  {invoice.customer.phone || 'No phone'}
                 </div>
               </div>
               <div>
@@ -227,6 +286,26 @@ function InvoiceDetail() {
       )}
     </section>
   )
+}
+
+const primaryButtonStyle: CSSProperties = {
+  border: '1px solid #0f766e',
+  borderRadius: '12px',
+  padding: '10px 14px',
+  backgroundColor: '#0f766e',
+  color: '#ffffff',
+  fontWeight: 700,
+  cursor: 'pointer',
+}
+
+const secondaryButtonStyle: CSSProperties = {
+  border: '1px solid #cbd5e1',
+  borderRadius: '12px',
+  padding: '10px 14px',
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  fontWeight: 600,
+  cursor: 'pointer',
 }
 
 export default InvoiceDetail
