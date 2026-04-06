@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useState } from 'react'
 
 import {
   createCustomer,
+  deleteCustomer,
   getCustomers,
   updateCustomer,
   type CustomerListItem,
@@ -14,11 +15,13 @@ type LoadState = 'idle' | 'loading' | 'success' | 'error'
 type FormState = {
   name: string
   email: string
+  phone: string
 }
 
 const emptyFormState: FormState = {
   name: '',
   email: '',
+  phone: '',
 }
 
 function Customers() {
@@ -71,6 +74,7 @@ function Customers() {
     setFormState({
       name: customer.name,
       email: customer.email ?? '',
+      phone: customer.phone ?? '',
     })
     setFormError(null)
   }
@@ -89,6 +93,7 @@ function Customers() {
     const payload: CustomerPayload = {
       name: formState.name.trim(),
       email: formState.email.trim() || null,
+      phone: formState.phone.trim() || null,
     }
 
     try {
@@ -108,6 +113,32 @@ function Customers() {
       )
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (customer: CustomerListItem) => {
+    const confirmed = window.confirm(
+      `Delete "${customer.name}"? Customers referenced by invoices cannot be deleted.`,
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setFormError(null)
+
+    try {
+      await deleteCustomer(customer.id)
+      if (editingCustomer?.id === customer.id) {
+        resetForm()
+      }
+
+      const refreshedCustomers = await getCustomers(deferredSearch)
+      setCustomers(refreshedCustomers)
+      setLoadState('success')
+    } catch (deleteError) {
+      setFormError(
+        deleteError instanceof Error ? deleteError.message : 'Failed to delete customer.',
+      )
     }
   }
 
@@ -191,6 +222,7 @@ function Customers() {
                   <tr style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ padding: '12px 8px' }}>Name</th>
                     <th style={{ padding: '12px 8px' }}>Email</th>
+                    <th style={{ padding: '12px 8px' }}>Phone</th>
                     <th style={{ padding: '12px 8px' }}>Updated</th>
                     <th style={{ padding: '12px 8px' }}>Actions</th>
                   </tr>
@@ -216,6 +248,9 @@ function Customers() {
                       </td>
                       <td style={{ padding: '14px 8px', color: '#475569' }}>
                         {customer.email || 'No email'}
+                      </td>
+                      <td style={{ padding: '14px 8px', color: '#475569' }}>
+                        {customer.phone || 'No phone'}
                       </td>
                       <td style={{ padding: '14px 8px', color: '#475569' }}>
                         {formatDateTime(customer.updated_at)}
@@ -245,6 +280,20 @@ function Customers() {
                             }}
                           >
                             Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(customer)}
+                            style={{
+                              border: 'none',
+                              padding: 0,
+                              background: 'none',
+                              color: '#b91c1c',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>
@@ -320,6 +369,23 @@ function Customers() {
                 }
                 placeholder="acme@example.com"
                 type="email"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                }}
+              />
+            </label>
+
+            <label style={{ display: 'grid', gap: '8px' }}>
+              <span style={{ fontWeight: 600 }}>Phone</span>
+              <input
+                value={formState.phone}
+                onChange={(event) =>
+                  setFormState((current) => ({ ...current, phone: event.target.value }))
+                }
+                placeholder="+962 7 9000 0000"
                 style={{
                   padding: '12px 14px',
                   borderRadius: '12px',

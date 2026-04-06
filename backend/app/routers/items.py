@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.messages.item import ItemCreate, ItemDetail, ItemListItem, ItemUpdate
-from app.services.items import build_item_detail, create_item, get_item_by_id, list_items, update_item
+from app.services.items import (
+    build_item_detail,
+    create_item,
+    delete_item,
+    get_item_by_id,
+    list_items,
+    update_item,
+)
 from app.utils import BusinessRuleError, NotFoundError
 
 
@@ -59,3 +66,15 @@ def update_item_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
     return ItemListItem.model_validate(item)
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item_endpoint(item_id: int, db: Session = Depends(get_db)) -> Response:
+    try:
+        delete_item(db, item_id)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except BusinessRuleError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

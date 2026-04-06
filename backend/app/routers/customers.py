@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -12,10 +12,13 @@ from app.messages.customer import (
 )
 from app.services.customers import (
     create_customer,
+    delete_customer,
     get_customer_by_id,
     list_customers,
+    list_customer_invoices,
     update_customer,
 )
+from app.utils import BusinessRuleError, NotFoundError
 
 
 router = APIRouter(prefix="/customers", tags=["customers"])
@@ -46,11 +49,27 @@ def get_customer_endpoint(
 ) -> CustomerDetail:
     try:
         customer = get_customer_by_id(db, customer_id)
-    except ValueError as error:
+    except NotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
-    detail = CustomerDetail.model_validate(customer)
-    return detail.model_copy(update={"invoices": []})
+    invoices = list_customer_invoices(db, customer_id)
+    return CustomerDetail(
+        id=customer.id,
+        name=customer.name,
+        email=customer.email,
+        phone=customer.phone,
+        created_at=customer.created_at,
+        updated_at=customer.updated_at,
+        invoices=[
+            {
+                "id": invoice.id,
+                "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date,
+                "total": invoice.total,
+            }
+            for invoice in invoices
+        ],
+    )
 
 
 @router.patch("/{customer_id}", response_model=CustomerListItem)
@@ -61,7 +80,19 @@ def update_customer_endpoint(
 ) -> CustomerListItem:
     try:
         customer = update_customer(db, customer_id, payload)
-    except ValueError as error:
+    except NotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
     return CustomerListItem.model_validate(customer)
+
+
+@router.delete("/{customer_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_customer_endpoint(customer_id: int, db: Session = Depends(get_db)) -> Response:
+    try:
+        delete_customer(db, customer_id)
+    except NotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except BusinessRuleError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

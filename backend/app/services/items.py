@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.messages.item import ItemCreate, ItemDetail, ItemUpdate
+from app.models.invoice import InvoiceLine
 from app.models.category import Category
 from app.models.item import Item
 from app.utils import BusinessRuleError, NotFoundError
@@ -68,6 +69,17 @@ def update_item(db: Session, item_id: int, payload: ItemUpdate) -> Item:
     db.commit()
 
     return get_item_by_id(db, item_id)
+
+
+def delete_item(db: Session, item_id: int) -> None:
+    item = get_item_by_id(db, item_id)
+
+    is_used_in_invoices = db.scalar(select(InvoiceLine.id).where(InvoiceLine.item_id == item_id).limit(1))
+    if is_used_in_invoices is not None:
+        raise BusinessRuleError("Cannot delete an item that is already used in invoices.")
+
+    db.delete(item)
+    db.commit()
 
 
 def build_item_detail(item: Item) -> ItemDetail:

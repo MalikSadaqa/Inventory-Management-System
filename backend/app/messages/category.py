@@ -55,4 +55,18 @@ class CategoryTreeNode(BaseModel):
     is_leaf: bool
 
 
+class CategoryParentSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
+class CategoryDetailRead(CategoryRead):
+    parent: CategoryParentSummary | None
+    path: list[str]
+    children_tree: list[CategoryTreeNode] = Field(default_factory=list)
+    is_leaf: bool
+
+
 CategoryTreeNode.model_rebuild()

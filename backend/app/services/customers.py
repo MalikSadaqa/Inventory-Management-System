@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.messages.customer import CustomerCreate, CustomerUpdate
 from app.models.customer import Customer
+from app.models.invoice import Invoice
+from app.utils import BusinessRuleError, NotFoundError
 
 
 def create_customer(db: Session, payload: CustomerCreate) -> Customer:
-    customer = Customer(name=payload.name.strip(), email=payload.email)
+    customer = Customer(name=payload.name.strip(), email=payload.email, phone=payload.phone)
     db.add(customer)
     db.commit()
     db.refresh(customer)
@@ -34,9 +36,14 @@ def search_customers_by_name(db: Session, search: str) -> list[Customer]:
 
 
 def get_customer_by_id(db: Session, customer_id: int) -> Customer:
-    customer = db.get(Customer, customer_id)
+    statement = (
+        select(Customer)
+        .options(selectinload(Customer.invoices))
+        .where(Customer.id == customer_id)
+    )
+    customer = db.scalar(statement)
     if customer is None:
-        raise ValueError("Customer not found.")
+        raise NotFoundError("Customer not found.")
     return customer
 
 
@@ -54,3 +61,25 @@ def update_customer(db: Session, customer_id: int, payload: CustomerUpdate) -> C
     db.commit()
     db.refresh(customer)
     return customer
+
+
+def delete_customer(db: Session, customer_id: int) -> None:
+    customer = get_customer_by_id(db, customer_id)
+
+    is_used_in_invoices = db.scalar(
+        select(Invoice.id).where(Invoice.customer_id == customer_id).limit(1)
+    )
+    if is_used_in_invoices is not None:
+        raise BusinessRuleError("Cannot delete customer because it is referenced by invoices.")
+
+    db.delete(customer)
+    db.commit()
+
+
+def list_customer_invoices(db: Session, customer_id: int) -> list[Invoice]:
+    statement = (
+        select(Invoice)
+        .where(Invoice.customer_id == customer_id)
+        .order_by(Invoice.invoice_date.desc(), Invoice.id.desc())
+    )
+    return list(db.scalars(statement).all())

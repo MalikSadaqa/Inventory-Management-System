@@ -9,6 +9,7 @@ from app.config import settings
 from app.db import check_database_connection, init_db
 from app.routers.categories import router as categories_router
 from app.routers.customers import router as customers_router
+from app.routers.invoices import router as invoices_router
 from app.routers.items import router as items_router
 
 
@@ -34,6 +35,7 @@ app.add_middleware(
 app.include_router(customers_router)
 app.include_router(categories_router)
 app.include_router(items_router)
+app.include_router(invoices_router)
 
 
 @app.get("/health")

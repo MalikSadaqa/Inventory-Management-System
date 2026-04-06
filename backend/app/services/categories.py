@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.messages.category import CategoryCreate, CategoryTreeNode, CategoryUpdate
+from app.messages.category import CategoryCreate, CategoryDetailRead, CategoryTreeNode, CategoryUpdate
 from app.models.category import Category
 from app.models.item import Item
 from app.utils import BusinessRuleError, NotFoundError
@@ -25,7 +25,12 @@ def list_categories(db: Session) -> list[Category]:
 
 
 def get_category_by_id(db: Session, category_id: int) -> Category:
-    category = db.get(Category, category_id)
+    statement = (
+        select(Category)
+        .options(selectinload(Category.children), selectinload(Category.parent))
+        .where(Category.id == category_id)
+    )
+    category = db.scalar(statement)
     if category is None:
         raise NotFoundError("Category not found.")
     return category
@@ -97,10 +102,55 @@ def get_category_tree(db: Session) -> list[CategoryTreeNode]:
     return roots
 
 
+def build_category_detail(db: Session, category_id: int) -> CategoryDetailRead:
+    category = get_category_by_id(db, category_id)
+    full_tree = get_category_tree(db)
+    selected_node = _find_tree_node(full_tree, category.id)
+    children_tree = selected_node.children if selected_node is not None else []
+    path = _build_category_path(category)
+
+    return CategoryDetailRead(
+        id=category.id,
+        name=category.name,
+        parent_id=category.parent_id,
+        created_at=category.created_at,
+        updated_at=category.updated_at,
+        parent=(
+            {"id": category.parent.id, "name": category.parent.name}
+            if category.parent is not None
+            else None
+        ),
+        path=path,
+        children_tree=children_tree,
+        is_leaf=selected_node.is_leaf if selected_node is not None else len(category.children) == 0,
+    )
+
+
 def _sort_tree_nodes(nodes: list[CategoryTreeNode]) -> None:
     nodes.sort(key=lambda node: (node.name.lower(), node.id))
     for node in nodes:
         _sort_tree_nodes(node.children)
+
+
+def _find_tree_node(nodes: list[CategoryTreeNode], category_id: int) -> CategoryTreeNode | None:
+    for node in nodes:
+        if node.id == category_id:
+            return node
+        nested = _find_tree_node(node.children, category_id)
+        if nested is not None:
+            return nested
+    return None
+
+
+def _build_category_path(category: Category) -> list[str]:
+    path: list[str] = []
+    current: Category | None = category
+    while current is not None:
+        path.append(current.name)
+        current = current.parent
+
+    path.reverse()
+    return path
 
 
 def _validate_parent_assignment(

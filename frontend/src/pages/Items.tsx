@@ -3,6 +3,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import CategoryTreePicker from '../components/CategoryTreePicker'
 import {
   createItem,
+  deleteItem,
   getCategoryTree,
   getItems,
   updateItem,
@@ -167,6 +168,27 @@ function Items() {
     fontSize: '0.95rem',
   }
 
+  const handleDelete = async (item: ItemListItem) => {
+    const confirmed = window.confirm(
+      `Delete "${item.name}"? Items used in invoices cannot be deleted.`,
+    )
+    if (!confirmed) {
+      return
+    }
+
+    setFormError(null)
+
+    try {
+      await deleteItem(item.id)
+      if (editingItem?.id === item.id) {
+        resetForm()
+      }
+      await loadItems()
+    } catch (deleteError) {
+      setFormError(deleteError instanceof Error ? deleteError.message : 'Failed to delete item.')
+    }
+  }
+
   return (
     <section style={{ display: 'grid', gap: '24px' }}>
       <div
@@ -313,6 +335,20 @@ function Items() {
                             }}
                           >
                             Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(item)}
+                            style={{
+                              border: 'none',
+                              background: 'none',
+                              padding: 0,
+                              color: '#b91c1c',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>

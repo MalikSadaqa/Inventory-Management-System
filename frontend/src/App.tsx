@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 
 import { getHealth, type HealthResponse } from './api'
 import Categories from './pages/Categories'
+import CategoryDetail from './pages/CategoryDetail'
 import CustomerDetail from './pages/CustomerDetail'
 import Customers from './pages/Customers'
+import InvoiceDetail from './pages/InvoiceDetail'
+import Invoices from './pages/Invoices'
 import ItemDetail from './pages/ItemDetail'
 import Items from './pages/Items'
 import { navigateTo } from './utils'
@@ -21,6 +24,10 @@ function getPageTitle(path: string): string {
 
   if (path.startsWith('/items')) {
     return 'Items'
+  }
+
+  if (path.startsWith('/invoices')) {
+    return 'Invoices'
   }
 
   return 'Customers'
@@ -76,12 +83,24 @@ function App() {
       return <Categories />
     }
 
+    if (/^\/categories\/\d+$/.test(path)) {
+      return <CategoryDetail />
+    }
+
     if (path === '/items') {
       return <Items />
     }
 
     if (/^\/items\/\d+$/.test(path)) {
       return <ItemDetail />
+    }
+
+    if (path === '/invoices') {
+      return <Invoices />
+    }
+
+    if (/^\/invoices\/\d+$/.test(path)) {
+      return <InvoiceDetail />
     }
 
     return <Customers />
@@ -144,6 +163,7 @@ function App() {
               { href: '/customers', label: 'Customers' },
               { href: '/categories', label: 'Categories' },
               { href: '/items', label: 'Items' },
+              { href: '/invoices', label: 'Invoices' },
             ].map((link) => (
               <a
                 key={link.href}

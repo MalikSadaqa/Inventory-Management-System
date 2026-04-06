@@ -11,7 +11,7 @@ import {
   type CategoryPayload,
   type CategoryTreeNode,
 } from '../api'
-import { formatDateTime } from '../utils'
+import { formatDateTime, navigateTo } from '../utils'
 
 type LoadState = 'loading' | 'success' | 'error'
 
@@ -25,7 +25,11 @@ const emptyFormState: FormState = {
   parentId: null,
 }
 
-function renderTree(nodes: CategoryTreeNode[], onEdit: (category: CategoryTreeNode) => void) {
+function renderTree(
+  nodes: CategoryTreeNode[],
+  onEdit: (category: CategoryTreeNode) => void,
+  onView: (categoryId: number) => void,
+) {
   return (
     <ul style={{ listStyle: 'none', margin: 0, paddingLeft: '18px', display: 'grid', gap: '10px' }}>
       {nodes.map((node) => (
@@ -39,7 +43,20 @@ function renderTree(nodes: CategoryTreeNode[], onEdit: (category: CategoryTreeNo
             }}
           >
             <div>
-              <span style={{ fontWeight: 600 }}>{node.name}</span>
+              <button
+                type="button"
+                onClick={() => onView(node.id)}
+                style={{
+                  border: 'none',
+                  background: 'none',
+                  padding: 0,
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                {node.name}
+              </button>
               <span style={{ marginLeft: '8px', color: '#64748b', fontSize: '0.9rem' }}>
                 {node.is_leaf ? 'Leaf' : 'Branch'}
               </span>
@@ -59,7 +76,7 @@ function renderTree(nodes: CategoryTreeNode[], onEdit: (category: CategoryTreeNo
               Edit
             </button>
           </div>
-          {node.children.length > 0 && renderTree(node.children, onEdit)}
+          {node.children.length > 0 && renderTree(node.children, onEdit, onView)}
         </li>
       ))}
     </ul>
@@ -153,6 +170,11 @@ function Categories() {
   }
 
   const handleDelete = async (categoryId: number) => {
+    const confirmed = window.confirm('Delete this category? This only works if it has no children and no items.')
+    if (!confirmed) {
+      return
+    }
+
     setFormError(null)
 
     try {
@@ -167,6 +189,10 @@ function Categories() {
         deleteError instanceof Error ? deleteError.message : 'Failed to delete category.',
       )
     }
+  }
+
+  const handleView = (categoryId: number) => {
+    navigateTo(`/categories/${categoryId}`)
   }
 
   return (
@@ -210,7 +236,7 @@ function Categories() {
               No categories created yet.
             </div>
           )}
-          {state === 'success' && tree.length > 0 && renderTree(tree, handleEdit)}
+          {state === 'success' && tree.length > 0 && renderTree(tree, handleEdit, handleView)}
 
           {state === 'success' && categories.length > 0 && (
             <div style={{ overflowX: 'auto' }}>
@@ -237,6 +263,16 @@ function Categories() {
                         </td>
                         <td style={{ padding: '14px 8px' }}>
                           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            <a
+                              href={`/categories/${category.id}`}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                navigateTo(`/categories/${category.id}`)
+                              }}
+                              style={{ color: '#0f766e', fontWeight: 600, textDecoration: 'none' }}
+                            >
+                              View
+                            </a>
                             <button
                               type="button"
                               onClick={() => handleEdit(category)}

@@ -7,6 +7,7 @@ export type CustomerListItem = {
   id: number
   name: string
   email: string | null
+  phone: string | null
   created_at: string
   updated_at: string
 }
@@ -14,15 +15,16 @@ export type CustomerListItem = {
 export type CustomerDetail = CustomerListItem & {
   invoices: Array<{
     id: number
-    invoice_number: string | null
-    total_amount: number | null
-    status: string | null
+    invoice_number: string
+    invoice_date: string | null
+    total: string | null
   }>
 }
 
 export type CustomerPayload = {
   name: string
   email?: string | null
+  phone?: string | null
 }
 
 export type CategoryListItem = {
@@ -38,6 +40,16 @@ export type CategoryTreeNode = {
   name: string
   parent_id: number | null
   children: CategoryTreeNode[]
+  is_leaf: boolean
+}
+
+export type CategoryDetail = CategoryListItem & {
+  parent: {
+    id: number
+    name: string
+  } | null
+  path: string[]
+  children_tree: CategoryTreeNode[]
   is_leaf: boolean
 }
 
@@ -78,6 +90,51 @@ export type ItemPayload = {
   cost: string
   category_id: number
   details?: string | null
+}
+
+export type InvoiceLinePayload = {
+  item_id: number
+  quantity: number
+}
+
+export type InvoicePayload = {
+  customer_id: number
+  invoice_date: string
+  items: InvoiceLinePayload[]
+}
+
+export type InvoiceLine = {
+  id: number
+  item_id: number | null
+  item_name_snapshot: string
+  unit_price_snapshot: string
+  unit_cost_snapshot: string | null
+  category_id_snapshot: number | null
+  category_path_snapshot: string | null
+  quantity: number
+  line_subtotal: string
+}
+
+export type InvoiceSummary = {
+  id: number
+  invoice_number: string
+  invoice_date: string
+  total_quantity: number
+  subtotal: string
+  tax_rate: string
+  tax_amount: string
+  total: string
+  created_at: string
+  updated_at: string
+}
+
+export type InvoiceDetail = InvoiceSummary & {
+  customer: {
+    id: number
+    name: string
+    email: string | null
+  }
+  lines: InvoiceLine[]
 }
 
 const API_BASE_URL =
@@ -150,6 +207,16 @@ export async function updateCustomer(
   return parseJsonResponse<CustomerListItem>(response)
 }
 
+export async function deleteCustomer(customerId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/customers/${customerId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    await parseJsonResponse(response)
+  }
+}
+
 export async function getCategories(): Promise<CategoryListItem[]> {
   const response = await fetch(`${API_BASE_URL}/categories`)
   return parseJsonResponse<CategoryListItem[]>(response)
@@ -158,6 +225,11 @@ export async function getCategories(): Promise<CategoryListItem[]> {
 export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
   const response = await fetch(`${API_BASE_URL}/categories/tree`)
   return parseJsonResponse<CategoryTreeNode[]>(response)
+}
+
+export async function getCategory(categoryId: number): Promise<CategoryDetail> {
+  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`)
+  return parseJsonResponse<CategoryDetail>(response)
 }
 
 export async function createCategory(payload: CategoryPayload): Promise<CategoryListItem> {
@@ -244,4 +316,36 @@ export async function updateItem(
   })
 
   return parseJsonResponse<ItemListItem>(response)
+}
+
+export async function deleteItem(itemId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/items/${itemId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    await parseJsonResponse(response)
+  }
+}
+
+export async function getInvoices(): Promise<InvoiceSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/invoices`)
+  return parseJsonResponse<InvoiceSummary[]>(response)
+}
+
+export async function getInvoice(invoiceId: number): Promise<InvoiceDetail> {
+  const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}`)
+  return parseJsonResponse<InvoiceDetail>(response)
+}
+
+export async function createInvoice(payload: InvoicePayload): Promise<InvoiceDetail> {
+  const response = await fetch(`${API_BASE_URL}/invoices`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  return parseJsonResponse<InvoiceDetail>(response)
 }

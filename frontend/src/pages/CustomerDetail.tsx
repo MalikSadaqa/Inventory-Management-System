@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { getCustomer, type CustomerDetail as CustomerDetailResponse } from '../api'
-import { formatDateTime, navigateTo } from '../utils'
+import { formatDate, formatDateTime, formatMoney, navigateTo } from '../utils'
 
 type LoadState = 'loading' | 'success' | 'error'
 
@@ -135,6 +135,12 @@ function CustomerDetail() {
                 </dd>
               </div>
               <div>
+                <dt style={{ color: '#475569', fontSize: '0.9rem' }}>Phone</dt>
+                <dd style={{ margin: '8px 0 0', fontWeight: 600 }}>
+                  {customer.phone || 'No phone'}
+                </dd>
+              </div>
+              <div>
                 <dt style={{ color: '#475569', fontSize: '0.9rem' }}>Created</dt>
                 <dd style={{ margin: '8px 0 0', fontWeight: 600 }}>
                   {formatDateTime(customer.created_at)}
@@ -159,7 +165,7 @@ function CustomerDetail() {
           >
             <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Invoices</h3>
             <p style={{ margin: '8px 0 0', color: '#475569' }}>
-              Future invoices for this customer will appear here.
+              Invoice history for this customer.
             </p>
 
             {customer.invoices.length === 0 ? (
@@ -175,13 +181,47 @@ function CustomerDetail() {
                 No invoices available for this customer yet.
               </div>
             ) : (
-              <ul style={{ margin: '20px 0 0', paddingLeft: '20px' }}>
+              <div style={{ marginTop: '20px', display: 'grid', gap: '14px' }}>
                 {customer.invoices.map((invoice) => (
-                  <li key={invoice.id}>
-                    {invoice.invoice_number || `Invoice #${invoice.id}`} {invoice.status || ''}
-                  </li>
+                  <div
+                    key={invoice.id}
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '16px',
+                      padding: '18px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                      <strong>{invoice.invoice_number || `Invoice #${invoice.id}`}</strong>
+                      <span style={{ color: '#475569' }}>
+                        {invoice.invoice_date ? formatDate(invoice.invoice_date) : 'No invoice date'}
+                      </span>
+                      <span style={{ color: '#475569' }}>
+                        Total {invoice.total ? formatMoney(invoice.total) : '0.00'}
+                      </span>
+                    </div>
+                    <a
+                      href={`/invoices/${invoice.id}`}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        navigateTo(`/invoices/${invoice.id}`)
+                      }}
+                      style={{
+                        textDecoration: 'none',
+                        color: '#0f766e',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Open Invoice
+                    </a>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
         </>

@@ -35,3 +35,4 @@ class Item(Base):
     )
 
     category: Mapped["Category"] = relationship("Category", back_populates="items")
+    invoice_lines: Mapped[list["InvoiceLine"]] = relationship("InvoiceLine", back_populates="item")

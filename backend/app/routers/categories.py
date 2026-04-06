@@ -6,12 +6,14 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.messages.category import (
     CategoryCreate,
+    CategoryDetailRead,
     CategoryListItem,
     CategoryRead,
     CategoryTreeNode,
     CategoryUpdate,
 )
 from app.services.categories import (
+    build_category_detail,
     create_category,
     delete_category,
     get_category_by_id,
@@ -49,14 +51,12 @@ def get_category_tree_endpoint(db: Session = Depends(get_db)) -> list[CategoryTr
     return get_category_tree(db)
 
 
-@router.get("/{category_id}", response_model=CategoryRead)
-def get_category_endpoint(category_id: int, db: Session = Depends(get_db)) -> CategoryRead:
+@router.get("/{category_id}", response_model=CategoryDetailRead)
+def get_category_endpoint(category_id: int, db: Session = Depends(get_db)) -> CategoryDetailRead:
     try:
-        category = get_category_by_id(db, category_id)
+        return build_category_detail(db, category_id)
     except NotFoundError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-
-    return CategoryRead.model_validate(category)
 
 
 @router.patch("/{category_id}", response_model=CategoryRead)
