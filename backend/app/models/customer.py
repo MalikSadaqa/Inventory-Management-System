@@ -28,3 +28,9 @@ class Customer(Base):
     )
 
     invoices: Mapped[list["Invoice"]] = relationship("Invoice", back_populates="customer")
+    tagged_items: Mapped[list["Item"]] = relationship(
+        "Item",
+        secondary="item_customer_tags",
+        back_populates="tagged_customers",
+        order_by="Item.name.asc()",
+    )

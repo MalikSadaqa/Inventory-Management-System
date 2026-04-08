@@ -16,6 +16,7 @@ from app.services.customers import (
     get_customer_by_id,
     list_customers,
     list_customer_invoices,
+    list_customer_tagged_items,
     update_customer,
 )
 from app.utils import BusinessRuleError, NotFoundError
@@ -53,6 +54,7 @@ def get_customer_endpoint(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
     invoices = list_customer_invoices(db, customer_id)
+    tagged_items = list_customer_tagged_items(customer)
     return CustomerDetail(
         id=customer.id,
         name=customer.name,
@@ -68,6 +70,15 @@ def get_customer_endpoint(
                 "total": invoice.total,
             }
             for invoice in invoices
+        ],
+        tagged_items=[
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": item.price,
+                "category_id": item.category_id,
+            }
+            for item in tagged_items
         ],
     )
 

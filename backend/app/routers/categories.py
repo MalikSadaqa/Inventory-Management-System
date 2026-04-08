@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -39,10 +39,12 @@ def create_category_endpoint(
 
     return CategoryRead.model_validate(category)
 
-
 @router.get("", response_model=list[CategoryListItem])
-def list_categories_endpoint(db: Session = Depends(get_db)) -> list[CategoryListItem]:
-    categories = list_categories(db)
+def list_categories_endpoint(
+    search: str | None = Query(default=None, max_length=255),
+    db: Session = Depends(get_db),
+) -> list[CategoryListItem]:
+    categories = list_categories(db, search=search)
     return [CategoryListItem.model_validate(category) for category in categories]
 
 

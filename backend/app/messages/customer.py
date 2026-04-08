@@ -80,8 +80,16 @@ class InvoiceSummary(BaseModel):
     total: Decimal | None = None
 
 
+class CustomerTaggedItemSummary(BaseModel):
+    id: int
+    name: str
+    price: Decimal
+    category_id: int
+
+
 class CustomerDetail(CustomerRead):
     invoices: list[InvoiceSummary] = Field(default_factory=list)
+    tagged_items: list[CustomerTaggedItemSummary] = Field(default_factory=list)
 
 
 class CustomerSearchParams(BaseModel):

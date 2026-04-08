@@ -1,3 +1,5 @@
+import { memo, useMemo } from 'react'
+
 import EntityAutocomplete, { type AutocompleteOption } from './EntityAutocomplete'
 import { formatMoney } from '../utils'
 
@@ -22,7 +24,39 @@ type InvoiceLineEditorProps = {
   loadItems: (search: string) => Promise<InvoiceItemOption[]>
 }
 
-function InvoiceLineEditor({
+const editorCardStyle = {
+  border: '1px solid #e2e8f0',
+  borderRadius: '18px',
+  padding: '18px',
+  display: 'grid',
+  gap: '14px',
+  backgroundColor: '#f8fafc',
+} as const
+
+const topRowStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '16px',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+} as const
+
+const editorGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 2.2fr) minmax(140px, 0.8fr) minmax(180px, 0.9fr)',
+  gap: '16px',
+  alignItems: 'start',
+} as const
+
+const detailsGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+  gap: '12px',
+  color: '#475569',
+  paddingTop: '2px',
+} as const
+
+const InvoiceLineEditor = memo(function InvoiceLineEditor({
   line,
   index,
   onItemSelect,
@@ -32,33 +66,13 @@ function InvoiceLineEditor({
   loadItems,
 }: InvoiceLineEditorProps) {
   const unitPrice = Number(line.item?.price ?? 0)
-  const lineSubtotal = unitPrice * line.quantity
+  const lineSubtotal = useMemo(() => unitPrice * line.quantity, [unitPrice, line.quantity])
 
   return (
-    <div
-      style={{
-        border: '1px solid #e2e8f0',
-        borderRadius: '18px',
-        padding: '18px',
-        display: 'grid',
-        gap: '14px',
-        backgroundColor: '#f8fafc',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '16px',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-        }}
-      >
+    <div style={editorCardStyle}>
+      <div style={topRowStyle}>
         <div>
           <h3 style={{ margin: 0, fontSize: '1rem' }}>Line {index + 1}</h3>
-          <p style={{ margin: '6px 0 0', color: '#475569' }}>
-            Search the catalog, then set the invoice quantity.
-          </p>
         </div>
         <button
           type="button"
@@ -76,14 +90,7 @@ function InvoiceLineEditor({
         </button>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 2.2fr) minmax(140px, 0.8fr) minmax(180px, 0.9fr)',
-          gap: '16px',
-          alignItems: 'start',
-        }}
-      >
+      <div style={editorGridStyle}>
         <EntityAutocomplete
           label="Item"
           placeholder="Search items by name"
@@ -129,15 +136,7 @@ function InvoiceLineEditor({
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-          gap: '12px',
-          color: '#475569',
-          paddingTop: '2px',
-        }}
-      >
+      <div style={detailsGridStyle}>
         <div>
           <div style={{ fontSize: '0.85rem' }}>Item</div>
           <div style={{ marginTop: '6px', color: '#0f172a', fontWeight: 600 }}>
@@ -159,7 +158,7 @@ function InvoiceLineEditor({
       </div>
     </div>
   )
-}
+})
 
 export type { InvoiceItemOption, InvoiceLineDraft }
 export default InvoiceLineEditor

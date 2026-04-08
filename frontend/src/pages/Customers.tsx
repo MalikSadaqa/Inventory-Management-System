@@ -8,6 +8,7 @@ import {
   type CustomerListItem,
   type CustomerPayload,
 } from '../api'
+import HelpTooltip from '../components/HelpTooltip'
 import { formatDateTime, navigateTo } from '../utils'
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error'
@@ -175,11 +176,9 @@ function Customers() {
               flexWrap: 'wrap',
             }}
           >
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Customer Directory</h2>
-              <p style={{ margin: '8px 0 0', color: '#475569' }}>
-                Search customers, open details, or edit records.
-              </p>
+              <HelpTooltip content="Search customers, open details, or edit records." />
             </div>
             <input
               value={searchInput}
@@ -314,15 +313,17 @@ function Customers() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem' }}>
                 {editingCustomer ? 'Edit Customer' : 'Add Customer'}
               </h2>
-              <p style={{ margin: '8px 0 0', color: '#475569' }}>
-                {editingCustomer
-                  ? 'Update the selected customer record.'
-                  : 'Create a customer record for invoices and orders.'}
-              </p>
+              <HelpTooltip
+                content={
+                  editingCustomer
+                    ? 'Update the selected customer record.'
+                    : 'Create a customer record for invoices and orders.'
+                }
+              />
             </div>
             {editingCustomer && (
               <button

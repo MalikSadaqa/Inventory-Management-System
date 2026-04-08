@@ -113,11 +113,6 @@ function CategoryTreePicker({
       {leafOnly && selectedNode && !selectedNode.is_leaf && (
         <p style={{ margin: 0, color: '#b91c1c' }}>Only leaf categories can be selected.</p>
       )}
-      {leafOnly && state === 'success' && (
-        <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
-          Branch categories are shown for context and cannot be selected for items.
-        </p>
-      )}
     </div>
   )
 }

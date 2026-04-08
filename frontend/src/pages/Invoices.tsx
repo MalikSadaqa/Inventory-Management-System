@@ -11,6 +11,7 @@ import {
   type ItemListItem,
 } from '../api'
 import EntityAutocomplete, { type AutocompleteOption } from '../components/EntityAutocomplete'
+import HelpTooltip from '../components/HelpTooltip'
 import InvoiceLineEditor, {
   type InvoiceItemOption,
   type InvoiceLineDraft,
@@ -31,6 +32,7 @@ type CustomerOption = AutocompleteOption & {
 }
 
 const TAX_RATE = 0.16
+const pageSectionStyle = { display: 'grid', gap: '24px' } as const
 
 function createEmptyLine(): InvoiceLineDraft {
   return {
@@ -119,24 +121,24 @@ function Invoices() {
     return { totalQuantity, subtotal, taxAmount, total }
   }, [lines])
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setSelectedCustomer(null)
     setInvoiceDate(todayDateInputValue())
     setLines([createEmptyLine()])
     setFormError(null)
-  }
+  }, [])
 
-  const handleLineItemSelect = (key: string, item: InvoiceItemOption) => {
+  const handleLineItemSelect = useCallback((key: string, item: InvoiceItemOption) => {
     setLines((current) =>
       current.map((line) => (line.key === key ? { ...line, item, quantity: Math.max(line.quantity, 1) } : line)),
     )
-  }
+  }, [])
 
-  const handleLineItemClear = (key: string) => {
+  const handleLineItemClear = useCallback((key: string) => {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, item: null } : line)))
-  }
+  }, [])
 
-  const handleLineQuantityChange = (key: string, quantity: number) => {
+  const handleLineQuantityChange = useCallback((key: string, quantity: number) => {
     setLines((current) =>
       current.map((line) =>
         line.key === key
@@ -144,15 +146,32 @@ function Invoices() {
           : line,
       ),
     )
-  }
+  }, [])
 
-  const handleRemoveLine = (key: string) => {
+  const handleRemoveLine = useCallback((key: string) => {
     setLines((current) => (current.length > 1 ? current.filter((line) => line.key !== key) : current))
-  }
+  }, [])
 
-  const handleAddLine = () => {
+  const handleAddLine = useCallback(() => {
     setLines((current) => [...current, createEmptyLine()])
-  }
+  }, [])
+
+  const renderedLineEditors = useMemo(
+    () =>
+      lines.map((line, index) => (
+        <InvoiceLineEditor
+          key={line.key}
+          line={line}
+          index={index}
+          onItemSelect={handleLineItemSelect}
+          onItemClear={handleLineItemClear}
+          onQuantityChange={handleLineQuantityChange}
+          onRemove={handleRemoveLine}
+          loadItems={itemLoader}
+        />
+      )),
+    [handleLineItemClear, handleLineItemSelect, handleLineQuantityChange, handleRemoveLine, itemLoader, lines],
+  )
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -204,7 +223,7 @@ function Invoices() {
   }
 
   return (
-    <section style={{ display: 'grid', gap: '24px' }}>
+    <section style={pageSectionStyle}>
       <div
         style={{
           display: 'grid',
@@ -224,11 +243,9 @@ function Invoices() {
             gap: '20px',
           }}
         >
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Create Invoice</h2>
-            <p style={{ margin: '8px 0 0', color: '#475569' }}>
-              Select a customer, add line items, and let the backend finalize totals.
-            </p>
+            <HelpTooltip content="Select a customer, add line items, and let the backend finalize totals." />
           </div>
 
           <div
@@ -266,11 +283,9 @@ function Invoices() {
 
           <div style={{ display: 'grid', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-              <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <h3 style={{ margin: 0, fontSize: '1.05rem' }}>Line Items</h3>
-                <p style={{ margin: '8px 0 0', color: '#475569' }}>
-                  Item prices shown here are previews. The backend stores immutable snapshots.
-                </p>
+                <HelpTooltip content="Item prices shown here are previews. The backend stores immutable snapshots." />
               </div>
               <div
                 style={{
@@ -295,18 +310,7 @@ function Invoices() {
                 paddingRight: '4px',
               }}
             >
-              {lines.map((line, index) => (
-                <InvoiceLineEditor
-                  key={line.key}
-                  line={line}
-                  index={index}
-                  onItemSelect={handleLineItemSelect}
-                  onItemClear={handleLineItemClear}
-                  onQuantityChange={handleLineQuantityChange}
-                  onRemove={handleRemoveLine}
-                  loadItems={itemLoader}
-                />
-              ))}
+              {renderedLineEditors}
             </div>
 
             <div
@@ -320,9 +324,6 @@ function Invoices() {
                 paddingTop: '16px',
               }}
             >
-              <p style={{ margin: 0, color: '#475569' }}>
-                Keep adding rows from here when you are working through larger invoices.
-              </p>
               <button
                 type="button"
                 onClick={handleAddLine}
@@ -425,9 +426,6 @@ function Invoices() {
         >
           <div>
             <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Recent Invoices</h2>
-            <p style={{ margin: '8px 0 0', color: '#475569' }}>
-              Open invoice details to verify stored snapshots and totals.
-            </p>
           </div>
 
           {invoiceState === 'loading' && <p style={{ margin: 0 }}>Loading invoices...</p>}

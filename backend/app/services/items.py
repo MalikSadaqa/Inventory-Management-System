@@ -6,23 +6,26 @@ from sqlalchemy.orm import Session, selectinload
 from app.messages.item import ItemCreate, ItemDetail, ItemUpdate
 from app.models.invoice import InvoiceLine
 from app.models.category import Category
+from app.models.customer import Customer
+from app.models.invoice import Invoice
 from app.models.item import Item
 from app.utils import BusinessRuleError, NotFoundError
 
 
 def create_item(db: Session, payload: ItemCreate) -> Item:
     category = _get_leaf_category(db, payload.category_id)
+    tagged_customers = _get_tagged_customers(db, payload.tagged_customer_ids)
     item = Item(
         name=payload.name,
         price=payload.price,
         cost=payload.cost,
         category_id=category.id,
         details=payload.details,
+        tagged_customers=tagged_customers,
     )
     db.add(item)
     db.commit()
-    db.refresh(item)
-    return item
+    return get_item_by_id(db, item.id)
 
 
 def list_items(
@@ -62,6 +65,10 @@ def update_item(db: Session, item_id: int, payload: ItemUpdate) -> Item:
         category = _get_leaf_category(db, updates["category_id"])
         updates["category_id"] = category.id
 
+    tagged_customer_ids = updates.pop("tagged_customer_ids", None)
+    if tagged_customer_ids is not None:
+        item.tagged_customers = _get_tagged_customers(db, tagged_customer_ids)
+
     for field, value in updates.items():
         setattr(item, field, value)
 
@@ -95,13 +102,46 @@ def build_item_detail(item: Item) -> ItemDetail:
         details=item.details,
         category={"id": item.category.id, "name": item.category.name},
         category_path=category_path,
+        tagged_customers=[
+            {
+                "id": customer.id,
+                "name": customer.name,
+                "email": customer.email,
+            }
+            for customer in item.tagged_customers
+        ],
+        invoice_appearances=_build_invoice_appearances(item),
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
 
 
 def _base_items_statement():
-    return select(Item).options(selectinload(Item.category))
+    return select(Item).options(
+        selectinload(Item.category),
+        selectinload(Item.tagged_customers),
+        selectinload(Item.invoice_lines).selectinload(InvoiceLine.invoice),
+    )
+
+
+def _get_tagged_customers(db: Session, customer_ids: list[int]) -> list[Customer]:
+    if not customer_ids:
+        return []
+
+    customers = list(
+        db.scalars(
+            select(Customer)
+            .where(Customer.id.in_(customer_ids))
+            .order_by(Customer.name.asc(), Customer.id.asc())
+        ).all()
+    )
+    customers_by_id = {customer.id: customer for customer in customers}
+    missing_customer_ids = [customer_id for customer_id in customer_ids if customer_id not in customers_by_id]
+    if missing_customer_ids:
+        missing_ids = ", ".join(str(customer_id) for customer_id in missing_customer_ids)
+        raise BusinessRuleError(f"Customer not found: {missing_ids}.")
+
+    return [customers_by_id[customer_id] for customer_id in customer_ids]
 
 
 def _get_leaf_category(db: Session, category_id: int) -> Category:
@@ -125,3 +165,32 @@ def _build_category_path(category: Category) -> list[str]:
 
     path.reverse()
     return path
+
+
+def _build_invoice_appearances(item: Item) -> list[dict]:
+    appearances = []
+    for line in item.invoice_lines:
+        if line.invoice is None:
+            continue
+
+        invoice: Invoice = line.invoice
+        appearances.append(
+            {
+                "invoice_id": invoice.id,
+                "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date,
+                "quantity": line.quantity,
+                "unit_price": line.unit_price_snapshot,
+                "line_total": line.line_subtotal,
+            }
+        )
+
+    appearances.sort(
+        key=lambda appearance: (
+            appearance["invoice_date"],
+            appearance["invoice_number"],
+            appearance["invoice_id"],
+        ),
+        reverse=True,
+    )
+    return appearances

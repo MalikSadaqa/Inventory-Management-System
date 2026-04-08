@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useDeferredValue, useEffect, useState } from 'react'
 
 import CategoryTreePicker from '../components/CategoryTreePicker'
 import {
@@ -11,6 +11,7 @@ import {
   type CategoryPayload,
   type CategoryTreeNode,
 } from '../api'
+import HelpTooltip from '../components/HelpTooltip'
 import { formatDateTime, navigateTo } from '../utils'
 
 type LoadState = 'loading' | 'success' | 'error'
@@ -87,6 +88,8 @@ function Categories() {
   const [categories, setCategories] = useState<CategoryListItem[]>([])
   const [tree, setTree] = useState<CategoryTreeNode[]>([])
   const [state, setState] = useState<LoadState>('loading')
+  const [searchInput, setSearchInput] = useState('')
+  const deferredSearch = useDeferredValue(searchInput)
   const [error, setError] = useState<string | null>(null)
   const [formState, setFormState] = useState<FormState>(emptyFormState)
   const [editingCategory, setEditingCategory] = useState<CategoryListItem | null>(null)
@@ -94,12 +97,15 @@ function Categories() {
   const [submitting, setSubmitting] = useState(false)
   const [treeReloadKey, setTreeReloadKey] = useState(0)
 
-  const loadData = async () => {
+  const loadData = async (search = deferredSearch) => {
     setState('loading')
     setError(null)
 
     try {
-      const [categoriesResponse, treeResponse] = await Promise.all([getCategories(), getCategoryTree()])
+      const [categoriesResponse, treeResponse] = await Promise.all([
+        getCategories(search),
+        getCategoryTree(),
+      ])
       setCategories(categoriesResponse)
       setTree(treeResponse)
       setState('success')
@@ -111,7 +117,7 @@ function Categories() {
 
   useEffect(() => {
     void loadData()
-  }, [])
+  }, [deferredSearch])
 
   const resetForm = () => {
     setFormState(emptyFormState)
@@ -216,15 +222,38 @@ function Categories() {
           }}
         >
           <div>
-            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Category Tree</h2>
-            <p style={{ margin: '8px 0 0', color: '#475569' }}>
-              Build nested categories for items such as Sticker → Rectangle → 20x20.
-            </p>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '16px',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Category Tree</h2>
+                <HelpTooltip content="Build nested categories for items such as Sticker -> Rectangle -> 20x20." />
+              </div>
+              <input
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search categories by name"
+                style={{
+                  minWidth: '240px',
+                  maxWidth: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                }}
+              />
+            </div>
           </div>
 
           {state === 'loading' && <p style={{ margin: 0 }}>Loading categories...</p>}
           {state === 'error' && <p style={{ margin: 0, color: '#b91c1c' }}>{error}</p>}
-          {state === 'success' && tree.length === 0 && (
+          {state === 'success' && tree.length === 0 && !deferredSearch.trim() && (
             <div
               style={{
                 border: '1px dashed #cbd5e1',
@@ -236,7 +265,7 @@ function Categories() {
               No categories created yet.
             </div>
           )}
-          {state === 'success' && tree.length > 0 && renderTree(tree, handleEdit, handleView)}
+          {state === 'success' && !deferredSearch.trim() && tree.length > 0 && renderTree(tree, handleEdit, handleView)}
 
           {state === 'success' && categories.length > 0 && (
             <div style={{ overflowX: 'auto' }}>
@@ -256,7 +285,18 @@ function Categories() {
 
                     return (
                       <tr key={category.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '14px 8px', fontWeight: 600 }}>{category.name}</td>
+                        <td style={{ padding: '14px 8px', fontWeight: 600 }}>
+                          <a
+                            href={`/categories/${category.id}`}
+                            onClick={(event) => {
+                              event.preventDefault()
+                              navigateTo(`/categories/${category.id}`)
+                            }}
+                            style={{ color: '#0f172a', textDecoration: 'none', fontWeight: 600 }}
+                          >
+                            {category.name}
+                          </a>
+                        </td>
                         <td style={{ padding: '14px 8px', color: '#475569' }}>{parentName}</td>
                         <td style={{ padding: '14px 8px', color: '#475569' }}>
                           {formatDateTime(category.updated_at)}
@@ -310,6 +350,18 @@ function Categories() {
               </table>
             </div>
           )}
+          {state === 'success' && deferredSearch.trim() && categories.length === 0 && (
+            <div
+              style={{
+                border: '1px dashed #cbd5e1',
+                borderRadius: '16px',
+                padding: '24px',
+                color: '#475569',
+              }}
+            >
+              No categories matched the current search.
+            </div>
+          )}
         </div>
 
         <div
@@ -321,15 +373,17 @@ function Categories() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem' }}>
                 {editingCategory ? 'Edit Category' : 'Add Category'}
               </h2>
-              <p style={{ margin: '8px 0 0', color: '#475569' }}>
-                {editingCategory
-                  ? 'Update the selected category and its parent.'
-                  : 'Create a root category or nest it under an existing one.'}
-              </p>
+              <HelpTooltip
+                content={
+                  editingCategory
+                    ? 'Update the selected category and its parent.'
+                    : 'Create a root category or nest it under an existing one.'
+                }
+              />
             </div>
             {editingCategory && (
               <button

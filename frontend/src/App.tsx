@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { getHealth, type HealthResponse } from './api'
 import Categories from './pages/Categories'
@@ -6,12 +6,20 @@ import CategoryDetail from './pages/CategoryDetail'
 import CustomerDetail from './pages/CustomerDetail'
 import Customers from './pages/Customers'
 import InvoiceDetail from './pages/InvoiceDetail'
+import InvoiceLineSearch from './pages/InvoiceLineSearch'
 import Invoices from './pages/Invoices'
 import ItemDetail from './pages/ItemDetail'
 import Items from './pages/Items'
 import { navigateTo } from './utils'
 
 type LoadState = 'loading' | 'success' | 'error'
+const navLinks = [
+  { href: '/customers', label: 'Customers' },
+  { href: '/categories', label: 'Categories' },
+  { href: '/items', label: 'Items' },
+  { href: '/invoices', label: 'Invoices' },
+  { href: '/search/invoice-lines', label: 'Line Search' },
+] as const
 
 function getCurrentPath(): string {
   return window.location.pathname
@@ -28,6 +36,10 @@ function getPageTitle(path: string): string {
 
   if (path.startsWith('/invoices')) {
     return 'Invoices'
+  }
+
+  if (path.startsWith('/search/invoice-lines')) {
+    return 'Invoice Line Search'
   }
 
   return 'Customers'
@@ -65,7 +77,7 @@ function App() {
     return () => window.removeEventListener('popstate', handleLocationChange)
   }, [])
 
-  const renderPage = () => {
+  const renderPage = useCallback(() => {
     if (path === '/' || path === '') {
       navigateTo('/customers')
       return null
@@ -103,8 +115,15 @@ function App() {
       return <InvoiceDetail />
     }
 
+    if (path === '/search/invoice-lines') {
+      return <InvoiceLineSearch />
+    }
+
     return <Customers />
-  }
+  }, [path])
+
+  const pageTitle = useMemo(() => getPageTitle(path), [path])
+  const renderedPage = useMemo(() => renderPage(), [renderPage])
 
   return (
     <div
@@ -141,7 +160,7 @@ function App() {
             <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
               Inventory Management System
             </p>
-            <h1 style={{ margin: '8px 0 0', fontSize: '2rem' }}>{getPageTitle(path)}</h1>
+            <h1 style={{ margin: '8px 0 0', fontSize: '2rem' }}>{pageTitle}</h1>
           </div>
           <nav style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
             <p
@@ -159,12 +178,7 @@ function App() {
               {state === 'error' && `Backend issue: ${error}`}
               {state === 'success' && health && `Backend ${health.status} / DB ${health.database}`}
             </p>
-            {[
-              { href: '/customers', label: 'Customers' },
-              { href: '/categories', label: 'Categories' },
-              { href: '/items', label: 'Items' },
-              { href: '/invoices', label: 'Invoices' },
-            ].map((link) => (
+            {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
@@ -184,7 +198,7 @@ function App() {
           </nav>
         </header>
 
-        {renderPage()}
+        {renderedPage}
       </div>
     </div>
   )

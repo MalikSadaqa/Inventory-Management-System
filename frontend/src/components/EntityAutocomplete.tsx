@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useState } from 'react'
+import { memo, useDeferredValue, useEffect, useState } from 'react'
 
 type Option = {
   id: number
@@ -14,9 +14,43 @@ type EntityAutocompleteProps = {
   onClear?: () => void
   loadOptions: (search: string) => Promise<Option[]>
   disabled?: boolean
+  inputValue?: string
+  onInputChange?: (value: string) => void
 }
 
-function EntityAutocomplete({
+const rootLabelStyle = { display: 'grid', gap: '8px', position: 'relative' } as const
+const inputWrapperStyle = { position: 'relative' } as const
+const inputStyle = {
+  width: '100%',
+  padding: '12px 14px',
+  borderRadius: '12px',
+  border: '1px solid #cbd5e1',
+  fontSize: '0.95rem',
+} as const
+const menuStyle = {
+  position: 'absolute',
+  top: 'calc(100% + 8px)',
+  left: 0,
+  right: 0,
+  backgroundColor: '#ffffff',
+  border: '1px solid #cbd5e1',
+  borderRadius: '14px',
+  boxShadow: '0 20px 40px rgba(15, 23, 42, 0.12)',
+  maxHeight: '240px',
+  overflowY: 'auto',
+  zIndex: 30,
+} as const
+const optionButtonStyle = {
+  width: '100%',
+  textAlign: 'left',
+  background: 'none',
+  border: 'none',
+  borderBottom: '1px solid #e2e8f0',
+  padding: '12px 14px',
+  cursor: 'pointer',
+} as const
+
+const EntityAutocomplete = memo(function EntityAutocomplete({
   label,
   placeholder,
   selectedOption,
@@ -24,8 +58,11 @@ function EntityAutocomplete({
   onClear,
   loadOptions,
   disabled = false,
+  inputValue,
+  onInputChange,
 }: EntityAutocompleteProps) {
-  const [query, setQuery] = useState(selectedOption?.label ?? '')
+  const [internalQuery, setInternalQuery] = useState(selectedOption?.label ?? '')
+  const query = inputValue ?? internalQuery
   const deferredQuery = useDeferredValue(query)
   const [options, setOptions] = useState<Option[]>([])
   const [open, setOpen] = useState(false)
@@ -33,8 +70,10 @@ function EntityAutocomplete({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setQuery(selectedOption?.label ?? '')
-  }, [selectedOption?.id, selectedOption?.label])
+    if (inputValue === undefined) {
+      setInternalQuery(selectedOption?.label ?? '')
+    }
+  }, [selectedOption?.id, selectedOption?.label, inputValue])
 
   useEffect(() => {
     if (disabled) {
@@ -75,9 +114,9 @@ function EntityAutocomplete({
   }, [deferredQuery, disabled, label, loadOptions])
 
   return (
-    <label style={{ display: 'grid', gap: '8px', position: 'relative' }}>
+    <label style={rootLabelStyle}>
       <span style={{ fontWeight: 600 }}>{label}</span>
-      <div style={{ position: 'relative' }}>
+      <div style={inputWrapperStyle}>
         <input
           value={query}
           onFocus={() => setOpen(true)}
@@ -85,39 +124,25 @@ function EntityAutocomplete({
             window.setTimeout(() => setOpen(false), 150)
           }}
           onChange={(event) => {
-            setQuery(event.target.value)
+            const nextValue = event.target.value
+            if (inputValue === undefined) {
+              setInternalQuery(nextValue)
+            }
+            onInputChange?.(nextValue)
             setOpen(true)
-            if (!event.target.value.trim()) {
+            if (!nextValue.trim()) {
               onClear?.()
             }
           }}
           placeholder={placeholder}
           disabled={disabled}
           style={{
-            width: '100%',
-            padding: '12px 14px',
-            borderRadius: '12px',
-            border: '1px solid #cbd5e1',
-            fontSize: '0.95rem',
+            ...inputStyle,
             backgroundColor: disabled ? '#f8fafc' : '#ffffff',
           }}
         />
         {open && !disabled && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 'calc(100% + 8px)',
-              left: 0,
-              right: 0,
-              backgroundColor: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '14px',
-              boxShadow: '0 20px 40px rgba(15, 23, 42, 0.12)',
-              maxHeight: '240px',
-              overflowY: 'auto',
-              zIndex: 30,
-            }}
-          >
+          <div style={menuStyle}>
             {loading && <div style={{ padding: '12px 14px', color: '#475569' }}>Loading...</div>}
             {!loading && error && (
               <div style={{ padding: '12px 14px', color: '#b91c1c' }}>{error}</div>
@@ -134,18 +159,13 @@ function EntityAutocomplete({
                   onMouseDown={(event) => {
                     event.preventDefault()
                     onSelect(option)
-                    setQuery(option.label)
+                    if (inputValue === undefined) {
+                      setInternalQuery(option.label)
+                    }
+                    onInputChange?.(option.label)
                     setOpen(false)
                   }}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: '1px solid #e2e8f0',
-                    padding: '12px 14px',
-                    cursor: 'pointer',
-                  }}
+                  style={optionButtonStyle}
                 >
                   <div style={{ fontWeight: 600, color: '#0f172a' }}>{option.label}</div>
                   {option.description && (
@@ -160,7 +180,7 @@ function EntityAutocomplete({
       </div>
     </label>
   )
-}
+})
 
 export type { Option as AutocompleteOption }
 export default EntityAutocomplete

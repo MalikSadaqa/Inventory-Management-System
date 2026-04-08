@@ -69,4 +69,17 @@ class CategoryDetailRead(CategoryRead):
     is_leaf: bool
 
 
+class CategorySearchParams(BaseModel):
+    search: str | None = Field(default=None, max_length=255)
+
+    @field_validator("search")
+    @classmethod
+    def normalize_search(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+
+        normalized = value.strip()
+        return normalized or None
+
+
 CategoryTreeNode.model_rebuild()

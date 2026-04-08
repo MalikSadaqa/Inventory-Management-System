@@ -186,7 +186,18 @@ function InvoiceDetail() {
               </div>
               <div>
                 <div style={{ color: '#475569', fontSize: '0.9rem' }}>Customer</div>
-                <div style={{ marginTop: '8px', fontWeight: 700 }}>{invoice.customer.name}</div>
+                <div style={{ marginTop: '8px', fontWeight: 700 }}>
+                  <a
+                    href={`/customers/${invoice.customer.id}`}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      navigateTo(`/customers/${invoice.customer.id}`)
+                    }}
+                    style={{ color: '#0f766e', textDecoration: 'none', fontWeight: 700 }}
+                  >
+                    {invoice.customer.name}
+                  </a>
+                </div>
                 <div style={{ marginTop: '4px', color: '#475569' }}>
                   {invoice.customer.email || 'No email'}
                 </div>
@@ -215,7 +226,22 @@ function InvoiceDetail() {
                   {invoice.lines.map((line) => (
                     <tr key={line.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '14px 8px' }}>
-                        <div style={{ fontWeight: 600 }}>{line.item_name_snapshot}</div>
+                        <div style={{ fontWeight: 600 }}>
+                          {line.item_id ? (
+                            <a
+                              href={`/items/${line.item_id}`}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                navigateTo(`/items/${line.item_id}`)
+                              }}
+                              style={{ color: '#0f766e', textDecoration: 'none', fontWeight: 700 }}
+                            >
+                              {line.item_name_snapshot}
+                            </a>
+                          ) : (
+                            line.item_name_snapshot
+                          )}
+                        </div>
                         <div style={{ marginTop: '4px', color: '#64748b', fontSize: '0.9rem' }}>
                           Source item id {line.item_id ?? 'Removed'}
                         </div>

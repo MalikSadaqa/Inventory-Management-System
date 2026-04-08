@@ -1,13 +1,18 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import CategoryTreePicker from '../components/CategoryTreePicker'
+import CustomerTagPicker from '../components/CustomerTagPicker'
+import HelpTooltip from '../components/HelpTooltip'
 import {
   createItem,
   deleteItem,
   getCategoryTree,
+  getCustomers,
+  getItem,
   getItems,
   updateItem,
   type CategoryTreeNode,
+  type CustomerListItem,
   type ItemListItem,
   type ItemPayload,
 } from '../api'
@@ -21,6 +26,7 @@ type FormState = {
   cost: string
   categoryId: number | null
   details: string
+  taggedCustomers: CustomerListItem[]
 }
 
 const emptyFormState: FormState = {
@@ -29,6 +35,7 @@ const emptyFormState: FormState = {
   cost: '',
   categoryId: null,
   details: '',
+  taggedCustomers: [],
 }
 
 function flattenLeaves(nodes: CategoryTreeNode[]): Array<{ id: number; label: string }> {
@@ -54,6 +61,7 @@ function Items() {
   const [editingItem, setEditingItem] = useState<ItemListItem | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [loadingEdit, setLoadingEdit] = useState(false)
   const [treeReloadKey, setTreeReloadKey] = useState(0)
 
   const leafOptions = useMemo(() => flattenLeaves(tree), [tree])
@@ -93,18 +101,37 @@ function Items() {
     setFormState(emptyFormState)
     setEditingItem(null)
     setFormError(null)
+    setLoadingEdit(false)
   }
 
-  const handleEdit = (item: ItemListItem) => {
+  const handleEdit = async (item: ItemListItem) => {
     setEditingItem(item)
-    setFormState({
-      name: item.name,
-      price: item.price,
-      cost: item.cost,
-      categoryId: item.category_id,
-      details: item.details ?? '',
-    })
+    setLoadingEdit(true)
     setFormError(null)
+
+    try {
+      const detail = await getItem(item.id)
+      setFormState({
+        name: detail.name,
+        price: detail.price,
+        cost: detail.cost,
+        categoryId: detail.category.id,
+        details: detail.details ?? '',
+        taggedCustomers: detail.tagged_customers.map((customer) => ({
+          id: customer.id,
+          name: customer.name,
+          email: customer.email,
+          phone: null,
+          created_at: '',
+          updated_at: '',
+        })),
+      })
+    } catch (loadError) {
+      setFormError(loadError instanceof Error ? loadError.message : 'Failed to load item for editing.')
+      setEditingItem(null)
+    } finally {
+      setLoadingEdit(false)
+    }
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -139,6 +166,7 @@ function Items() {
       cost: formState.cost,
       category_id: formState.categoryId,
       details: formState.details.trim() || null,
+      tagged_customer_ids: formState.taggedCustomers.map((customer) => customer.id),
     }
 
     try {
@@ -155,17 +183,6 @@ function Items() {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  const fieldStyle = {
-    width: '100%',
-    maxWidth: '100%',
-    minWidth: 0,
-    boxSizing: 'border-box' as const,
-    padding: '12px 14px',
-    borderRadius: '12px',
-    border: '1px solid #cbd5e1',
-    fontSize: '0.95rem',
   }
 
   const handleDelete = async (item: ItemListItem) => {
@@ -189,6 +206,10 @@ function Items() {
     }
   }
 
+  const loadCustomersForTags = async (search: string) => {
+    return getCustomers(search)
+  }
+
   return (
     <section style={{ display: 'grid', gap: '24px' }}>
       <div
@@ -206,6 +227,8 @@ function Items() {
             borderRadius: '20px',
             padding: '24px',
             boxShadow: '0 20px 50px rgba(15, 23, 42, 0.08)',
+            display: 'grid',
+            gap: '20px',
           }}
         >
           <div
@@ -214,40 +237,24 @@ function Items() {
               justifyContent: 'space-between',
               gap: '16px',
               alignItems: 'center',
-              marginBottom: '20px',
               flexWrap: 'wrap',
             }}
           >
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Items</h2>
-              <p style={{ margin: '8px 0 0', color: '#475569' }}>
-                Search items, filter by leaf category, and maintain pricing data.
-              </p>
+              <HelpTooltip content="Search items, filter by leaf category, and maintain pricing data." />
             </div>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <input
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Search by item name"
-                style={{
-                  width: '240px',
-                  maxWidth: '100%',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '0.95rem',
-                }}
+                style={filterFieldStyle}
               />
               <select
                 value={categoryFilter ?? ''}
                 onChange={(event) => setCategoryFilter(event.target.value ? Number(event.target.value) : null)}
-                style={{
-                  minWidth: '240px',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '0.95rem',
-                }}
+                style={filterFieldStyle}
               >
                 <option value="">All categories</option>
                 {leafOptions.map((option) => (
@@ -262,16 +269,7 @@ function Items() {
           {state === 'loading' && <p style={{ margin: 0 }}>Loading items...</p>}
           {state === 'error' && <p style={{ margin: 0, color: '#b91c1c' }}>{error}</p>}
           {state === 'success' && items.length === 0 && (
-            <div
-              style={{
-                border: '1px dashed #cbd5e1',
-                borderRadius: '16px',
-                padding: '24px',
-                color: '#475569',
-              }}
-            >
-              No items found.
-            </div>
+            <div style={emptyStateStyle}>No items found.</div>
           )}
 
           {state === 'success' && items.length > 0 && (
@@ -279,38 +277,34 @@ function Items() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ padding: '12px 8px' }}>Name</th>
-                    <th style={{ padding: '12px 8px' }}>Price</th>
-                    <th style={{ padding: '12px 8px' }}>Cost</th>
-                    <th style={{ padding: '12px 8px' }}>Updated</th>
-                    <th style={{ padding: '12px 8px' }}>Actions</th>
+                    <th style={headerCellStyle}>Name</th>
+                    <th style={headerCellStyle}>Price</th>
+                    <th style={headerCellStyle}>Cost</th>
+                    <th style={headerCellStyle}>Updated</th>
+                    <th style={headerCellStyle}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => (
                     <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '14px 8px' }}>
+                      <td style={bodyCellStyle}>
                         <a
                           href={`/items/${item.id}`}
                           onClick={(event) => {
                             event.preventDefault()
                             navigateTo(`/items/${item.id}`)
                           }}
-                          style={{
-                            color: '#0f172a',
-                            textDecoration: 'none',
-                            fontWeight: 600,
-                          }}
+                          style={primaryLinkStyle}
                         >
                           {item.name}
                         </a>
                       </td>
-                      <td style={{ padding: '14px 8px' }}>{formatMoney(item.price)}</td>
-                      <td style={{ padding: '14px 8px' }}>{formatMoney(item.cost)}</td>
-                      <td style={{ padding: '14px 8px', color: '#475569' }}>
+                      <td style={bodyCellStyle}>{formatMoney(item.price)}</td>
+                      <td style={bodyCellStyle}>{formatMoney(item.cost)}</td>
+                      <td style={{ ...bodyCellStyle, color: '#475569' }}>
                         {formatDateTime(item.updated_at)}
                       </td>
-                      <td style={{ padding: '14px 8px' }}>
+                      <td style={bodyCellStyle}>
                         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                           <a
                             href={`/items/${item.id}`}
@@ -318,35 +312,17 @@ function Items() {
                               event.preventDefault()
                               navigateTo(`/items/${item.id}`)
                             }}
-                            style={{ color: '#0f766e', fontWeight: 600, textDecoration: 'none' }}
+                            style={actionLinkStyle}
                           >
                             View
                           </a>
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(item)}
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              padding: 0,
-                              color: '#0369a1',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                            }}
-                          >
+                          <button type="button" onClick={() => void handleEdit(item)} style={plainButtonStyle}>
                             Edit
                           </button>
                           <button
                             type="button"
                             onClick={() => void handleDelete(item)}
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              padding: 0,
-                              color: '#b91c1c',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                            }}
+                            style={{ ...plainButtonStyle, color: '#b91c1c' }}
                           >
                             Delete
                           </button>
@@ -370,29 +346,19 @@ function Items() {
             padding: '24px',
             boxShadow: '0 20px 50px rgba(15, 23, 42, 0.08)',
             overflow: 'hidden',
+            display: 'grid',
+            gap: '18px',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem' }}>
                 {editingItem ? 'Edit Item' : 'Add Item'}
               </h2>
-              <p style={{ margin: '8px 0 0', color: '#475569' }}>
-                Items must be attached to a leaf category.
-              </p>
+              <HelpTooltip content="Keep catalog pricing current and attach each item to a leaf category with optional customer tags." />
             </div>
             {editingItem && (
-              <button
-                type="button"
-                onClick={resetForm}
-                style={{
-                  border: '1px solid #cbd5e1',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '10px',
-                  padding: '10px 12px',
-                  cursor: 'pointer',
-                }}
-              >
+              <button type="button" onClick={resetForm} style={secondaryButtonStyle}>
                 Cancel
               </button>
             )}
@@ -400,7 +366,7 @@ function Items() {
 
           <form
             onSubmit={handleSubmit}
-            style={{ display: 'grid', gap: '16px', marginTop: '20px', width: '100%', minWidth: 0 }}
+            style={{ display: 'grid', gap: '16px', width: '100%', minWidth: 0 }}
           >
             <label style={{ display: 'grid', gap: '8px', minWidth: 0 }}>
               <span style={{ fontWeight: 600 }}>Name</span>
@@ -466,6 +432,13 @@ function Items() {
               reloadKey={treeReloadKey}
             />
 
+            <CustomerTagPicker
+              selectedCustomers={formState.taggedCustomers}
+              onChange={(taggedCustomers) => setFormState((current) => ({ ...current, taggedCustomers }))}
+              loadCustomers={loadCustomersForTags}
+              disabled={loadingEdit || submitting}
+            />
+
             <label style={{ display: 'grid', gap: '8px', minWidth: 0 }}>
               <span style={{ fontWeight: 600 }}>Details</span>
               <textarea
@@ -484,32 +457,96 @@ function Items() {
 
             {formError && <p style={{ margin: 0, color: '#b91c1c' }}>{formError}</p>}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              style={{
-                border: 'none',
-                borderRadius: '12px',
-                padding: '12px 16px',
-                backgroundColor: '#0f766e',
-                color: '#ffffff',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {submitting
-                ? editingItem
-                  ? 'Saving...'
-                  : 'Creating...'
-                : editingItem
-                  ? 'Save Item'
-                  : 'Add Item'}
+            <button type="submit" disabled={submitting || loadingEdit} style={primaryButtonStyle}>
+              {loadingEdit
+                ? 'Loading item...'
+                : submitting
+                  ? editingItem
+                    ? 'Saving...'
+                    : 'Creating...'
+                  : editingItem
+                    ? 'Save Item'
+                    : 'Add Item'}
             </button>
           </form>
         </div>
       </div>
     </section>
   )
+}
+
+const fieldStyle = {
+  width: '100%',
+  maxWidth: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+  padding: '12px 14px',
+  borderRadius: '12px',
+  border: '1px solid #cbd5e1',
+  fontSize: '0.95rem',
+}
+
+const filterFieldStyle = {
+  minWidth: '220px',
+  maxWidth: '100%',
+  padding: '12px 14px',
+  borderRadius: '12px',
+  border: '1px solid #cbd5e1',
+  fontSize: '0.95rem',
+}
+
+const emptyStateStyle = {
+  border: '1px dashed #cbd5e1',
+  borderRadius: '16px',
+  padding: '24px',
+  color: '#475569',
+}
+
+const headerCellStyle = {
+  padding: '12px 8px',
+}
+
+const bodyCellStyle = {
+  padding: '14px 8px',
+}
+
+const primaryLinkStyle = {
+  color: '#0f172a',
+  textDecoration: 'none',
+  fontWeight: 600,
+}
+
+const actionLinkStyle = {
+  color: '#0f766e',
+  fontWeight: 600,
+  textDecoration: 'none',
+}
+
+const plainButtonStyle = {
+  border: 'none',
+  background: 'none',
+  padding: 0,
+  color: '#0369a1',
+  cursor: 'pointer',
+  fontWeight: 600,
+}
+
+const secondaryButtonStyle = {
+  border: '1px solid #cbd5e1',
+  backgroundColor: '#ffffff',
+  borderRadius: '10px',
+  padding: '10px 12px',
+  cursor: 'pointer',
+}
+
+const primaryButtonStyle = {
+  border: 'none',
+  borderRadius: '12px',
+  padding: '12px 16px',
+  backgroundColor: '#0f766e',
+  color: '#ffffff',
+  fontWeight: 700,
+  cursor: 'pointer',
 }
 
 export default Items

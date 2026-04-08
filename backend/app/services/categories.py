@@ -19,8 +19,13 @@ def create_category(db: Session, payload: CategoryCreate) -> Category:
     return category
 
 
-def list_categories(db: Session) -> list[Category]:
-    statement = select(Category).order_by(Category.name.asc(), Category.id.asc())
+def list_categories(db: Session, search: str | None = None) -> list[Category]:
+    statement = select(Category)
+
+    if search:
+        statement = statement.where(Category.name.ilike(f"%{search.strip()}%"))
+
+    statement = statement.order_by(Category.name.asc(), Category.id.asc())
     return list(db.scalars(statement).all())
 
 

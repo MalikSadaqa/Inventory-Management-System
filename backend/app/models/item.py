@@ -3,10 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Table, Text, Column, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+
+
+item_customer_tags = Table(
+    "item_customer_tags",
+    Base.metadata,
+    Column("item_id", ForeignKey("items.id", ondelete="CASCADE"), primary_key=True),
+    Column("customer_id", ForeignKey("customers.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class Item(Base):
@@ -36,3 +44,9 @@ class Item(Base):
 
     category: Mapped["Category"] = relationship("Category", back_populates="items")
     invoice_lines: Mapped[list["InvoiceLine"]] = relationship("InvoiceLine", back_populates="item")
+    tagged_customers: Mapped[list["Customer"]] = relationship(
+        "Customer",
+        secondary=item_customer_tags,
+        back_populates="tagged_items",
+        order_by="Customer.name.asc()",
+    )

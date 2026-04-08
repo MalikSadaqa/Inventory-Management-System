@@ -19,6 +19,12 @@ export type CustomerDetail = CustomerListItem & {
     invoice_date: string | null
     total: string | null
   }>
+  tagged_items: Array<{
+    id: number
+    name: string
+    price: string
+    category_id: number
+  }>
 }
 
 export type CustomerPayload = {
@@ -80,6 +86,19 @@ export type ItemDetail = {
     name: string
   }
   category_path: string[]
+  tagged_customers: Array<{
+    id: number
+    name: string
+    email: string | null
+  }>
+  invoice_appearances: Array<{
+    invoice_id: number
+    invoice_number: string
+    invoice_date: string
+    quantity: number
+    unit_price: string
+    line_total: string
+  }>
   created_at: string
   updated_at: string
 }
@@ -90,6 +109,7 @@ export type ItemPayload = {
   cost: string
   category_id: number
   details?: string | null
+  tagged_customer_ids?: number[]
 }
 
 export type InvoiceLinePayload = {
@@ -136,6 +156,52 @@ export type InvoiceDetail = InvoiceSummary & {
     phone: string | null
   }
   lines: InvoiceLine[]
+}
+
+export type InvoiceLineSearchSortField =
+  | 'invoice_number'
+  | 'invoice_date'
+  | 'customer_name'
+  | 'item_name'
+  | 'quantity'
+  | 'unit_price'
+  | 'line_total'
+
+export type SortDirection = 'asc' | 'desc'
+
+export type InvoiceLineSearchParams = {
+  item_id?: number | null
+  item_name?: string
+  customer_name?: string
+  customer_email?: string
+  date_from?: string
+  date_to?: string
+  page?: number
+  page_size?: number
+  sort_by?: InvoiceLineSearchSortField
+  sort_direction?: SortDirection
+}
+
+export type InvoiceLineSearchRow = {
+  invoice_line_id: number
+  item_id: number | null
+  item_name: string
+  invoice_id: number
+  invoice_number: string
+  invoice_date: string
+  customer_id: number
+  customer_name: string
+  customer_email: string | null
+  quantity: number
+  unit_price: string
+  line_total: string
+}
+
+export type InvoiceLineSearchResponse = {
+  items: InvoiceLineSearchRow[]
+  page: number
+  page_size: number
+  total: number
 }
 
 const API_BASE_URL =
@@ -226,8 +292,14 @@ export async function deleteCustomer(customerId: number): Promise<void> {
   }
 }
 
-export async function getCategories(): Promise<CategoryListItem[]> {
-  const response = await fetch(`${API_BASE_URL}/categories`)
+export async function getCategories(search?: string): Promise<CategoryListItem[]> {
+  const query = new URLSearchParams()
+  if (search?.trim()) {
+    query.set('search', search.trim())
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  const response = await fetch(`${API_BASE_URL}/categories${suffix}`)
   return parseJsonResponse<CategoryListItem[]>(response)
 }
 
@@ -345,6 +417,47 @@ export async function getInvoices(): Promise<InvoiceSummary[]> {
 export async function getInvoice(invoiceId: number): Promise<InvoiceDetail> {
   const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}`)
   return parseJsonResponse<InvoiceDetail>(response)
+}
+
+export async function searchInvoiceLines(
+  params: InvoiceLineSearchParams,
+): Promise<InvoiceLineSearchResponse> {
+  const query = new URLSearchParams()
+
+  if (params.item_id && params.item_id > 0) {
+    query.set('item_id', String(params.item_id))
+  }
+  if (params.item_name?.trim()) {
+    query.set('item_name', params.item_name.trim())
+  }
+  if (params.customer_name?.trim()) {
+    query.set('customer_name', params.customer_name.trim())
+  }
+  if (params.customer_email?.trim()) {
+    query.set('customer_email', params.customer_email.trim())
+  }
+  if (params.date_from) {
+    query.set('date_from', params.date_from)
+  }
+  if (params.date_to) {
+    query.set('date_to', params.date_to)
+  }
+  if (params.page && params.page > 0) {
+    query.set('page', String(params.page))
+  }
+  if (params.page_size && params.page_size > 0) {
+    query.set('page_size', String(params.page_size))
+  }
+  if (params.sort_by) {
+    query.set('sort_by', params.sort_by)
+  }
+  if (params.sort_direction) {
+    query.set('sort_direction', params.sort_direction)
+  }
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  const response = await fetch(`${API_BASE_URL}/search/invoice-lines${suffix}`)
+  return parseJsonResponse<InvoiceLineSearchResponse>(response)
 }
 
 export async function createInvoice(payload: InvoicePayload): Promise<InvoiceDetail> {

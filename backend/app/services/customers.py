@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.messages.customer import CustomerCreate, CustomerUpdate
 from app.models.customer import Customer
 from app.models.invoice import Invoice
+from app.models.item import Item
 from app.utils import BusinessRuleError, NotFoundError
 
 
@@ -38,7 +39,7 @@ def search_customers_by_name(db: Session, search: str) -> list[Customer]:
 def get_customer_by_id(db: Session, customer_id: int) -> Customer:
     statement = (
         select(Customer)
-        .options(selectinload(Customer.invoices))
+        .options(selectinload(Customer.invoices), selectinload(Customer.tagged_items))
         .where(Customer.id == customer_id)
     )
     customer = db.scalar(statement)
@@ -72,6 +73,15 @@ def delete_customer(db: Session, customer_id: int) -> None:
     if is_used_in_invoices is not None:
         raise BusinessRuleError("Cannot delete customer because it is referenced by invoices.")
 
+    is_used_in_item_tags = db.scalar(
+        select(Item.id)
+        .join(Item.tagged_customers)
+        .where(Customer.id == customer_id)
+        .limit(1)
+    )
+    if is_used_in_item_tags is not None:
+        raise BusinessRuleError("Cannot delete customer because it is tagged on items.")
+
     db.delete(customer)
     db.commit()
 
@@ -83,3 +93,7 @@ def list_customer_invoices(db: Session, customer_id: int) -> list[Invoice]:
         .order_by(Invoice.invoice_date.desc(), Invoice.id.desc())
     )
     return list(db.scalars(statement).all())
+
+
+def list_customer_tagged_items(customer: Customer) -> list[Item]:
+    return sorted(customer.tagged_items, key=lambda item: (item.name.lower(), item.id))
