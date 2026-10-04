@@ -33,7 +33,8 @@ def list_items(
     search: str | None = None,
     category_id: int | None = None,
 ) -> list[Item]:
-    statement = _base_items_statement()
+    # The list response only exposes item columns, so skip the detail eager loads.
+    statement = select(Item)
 
     if search and search.strip():
         statement = statement.where(Item.name.icontains(search.strip(), autoescape=True))
