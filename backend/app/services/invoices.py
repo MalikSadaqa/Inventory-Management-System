@@ -21,6 +21,8 @@ from openpyxl.styles import Font
 
 TAX_RATE = Decimal("0.16")
 MONEY_QUANTIZER = Decimal("0.01")
+MONEY_FORMAT = "#,##0.00"
+PERCENT_FORMAT = "0.00%"
 
 
 def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
@@ -139,10 +141,10 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
         ("Customer Email", invoice.customer.email or ""),
         ("Customer Phone", invoice.customer.phone or ""),
         ("Total Quantity", invoice.total_quantity),
-        ("Subtotal", str(invoice.subtotal)),
-        ("Tax Rate", str(invoice.tax_rate)),
-        ("Tax Amount", str(invoice.tax_amount)),
-        ("Total", str(invoice.total)),
+        ("Subtotal", invoice.subtotal),
+        ("Tax Rate", invoice.tax_rate),
+        ("Tax Amount", invoice.tax_amount),
+        ("Total", invoice.total),
         ("Created At", invoice.created_at.isoformat()),
         ("Updated At", invoice.updated_at.isoformat()),
     ]
@@ -151,6 +153,11 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
     _style_header_row(metadata_sheet)
     for row in metadata_rows:
         metadata_sheet.append(list(row))
+        value_cell = metadata_sheet.cell(row=metadata_sheet.max_row, column=2)
+        if row[0] == "Tax Rate":
+            value_cell.number_format = PERCENT_FORMAT
+        elif isinstance(row[1], Decimal):
+            value_cell.number_format = MONEY_FORMAT
 
     lines_sheet.append(
         [
@@ -171,10 +178,12 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
                 line.item_id or "",
                 line.category_path_snapshot or "",
                 line.quantity,
-                str(line.unit_price_snapshot),
-                str(line.line_subtotal),
+                line.unit_price_snapshot,
+                line.line_subtotal,
             ]
         )
+        for cell in lines_sheet[lines_sheet.max_row][4:6]:
+            cell.number_format = MONEY_FORMAT
 
     for sheet in (metadata_sheet, lines_sheet):
         _auto_size_columns(sheet)
