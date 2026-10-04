@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +26,7 @@ def render_invoice_pdf(invoice: Invoice) -> bytes:
 
 def _build_invoice_context(invoice: Invoice) -> dict[str, Any]:
     return {
-        "generated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "invoice": {
             "invoice_number": invoice.invoice_number,
             "invoice_date": invoice.invoice_date.strftime("%b %d, %Y"),

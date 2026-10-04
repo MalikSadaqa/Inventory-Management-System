@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,12 +15,15 @@ from app.routers.items import router as items_router
 from app.routers.search import router as search_router
 
 
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     try:
         init_db()
     except Exception:
-        pass
+        logger.exception("Database initialization failed; tables may be missing.")
     yield
 
 

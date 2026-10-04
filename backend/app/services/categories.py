@@ -23,7 +23,7 @@ def list_categories(db: Session, search: str | None = None) -> list[Category]:
     statement = select(Category)
 
     if search:
-        statement = statement.where(Category.name.ilike(f"%{search.strip()}%"))
+        statement = statement.where(Category.name.icontains(search.strip(), autoescape=True))
 
     statement = statement.order_by(Category.name.asc(), Category.id.asc())
     return list(db.scalars(statement).all())

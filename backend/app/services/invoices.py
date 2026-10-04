@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
+from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -20,6 +21,8 @@ from openpyxl.styles import Font
 
 TAX_RATE = Decimal("0.16")
 MONEY_QUANTIZER = Decimal("0.01")
+MONEY_FORMAT = "#,##0.00"
+PERCENT_FORMAT = "0.00%"
 
 
 def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
@@ -73,41 +76,29 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     tax_amount = _to_money(subtotal * TAX_RATE)
     total = _to_money(subtotal + tax_amount)
 
-    last_error: IntegrityError | None = None
-    for _ in range(3):
-        invoice = Invoice(
-            invoice_number=_generate_invoice_number(db),
-            customer_id=customer.id,
-            invoice_date=payload.invoice_date,
-            total_quantity=total_quantity,
-            subtotal=subtotal,
-            tax_rate=TAX_RATE,
-            tax_amount=tax_amount,
-            total=total,
-            lines=[
-                InvoiceLine(
-                    item_id=line.item_id,
-                    item_name_snapshot=line.item_name_snapshot,
-                    unit_price_snapshot=line.unit_price_snapshot,
-                    unit_cost_snapshot=line.unit_cost_snapshot,
-                    category_id_snapshot=line.category_id_snapshot,
-                    category_path_snapshot=line.category_path_snapshot,
-                    quantity=line.quantity,
-                    line_subtotal=line.line_subtotal,
-                )
-                for line in invoice_lines
-            ],
-        )
+    invoice = Invoice(
+        # Unique placeholder until the database assigns the id the real number is derived from.
+        invoice_number=uuid4().hex,
+        customer_id=customer.id,
+        invoice_date=payload.invoice_date,
+        total_quantity=total_quantity,
+        subtotal=subtotal,
+        tax_rate=TAX_RATE,
+        tax_amount=tax_amount,
+        total=total,
+        lines=invoice_lines,
+    )
 
-        try:
-            db.add(invoice)
-            db.commit()
-            return get_invoice_by_id(db, invoice.id)
-        except IntegrityError as error:
-            db.rollback()
-            last_error = error
+    try:
+        db.add(invoice)
+        db.flush()
+        invoice.invoice_number = _format_invoice_number(invoice.id)
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise BusinessRuleError("Failed to create invoice.") from error
 
-    raise BusinessRuleError("Failed to generate a unique invoice number.") from last_error
+    return get_invoice_by_id(db, invoice.id)
 
 
 def list_invoices(db: Session) -> list[Invoice]:
@@ -150,10 +141,10 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
         ("Customer Email", invoice.customer.email or ""),
         ("Customer Phone", invoice.customer.phone or ""),
         ("Total Quantity", invoice.total_quantity),
-        ("Subtotal", str(invoice.subtotal)),
-        ("Tax Rate", str(invoice.tax_rate)),
-        ("Tax Amount", str(invoice.tax_amount)),
-        ("Total", str(invoice.total)),
+        ("Subtotal", invoice.subtotal),
+        ("Tax Rate", invoice.tax_rate),
+        ("Tax Amount", invoice.tax_amount),
+        ("Total", invoice.total),
         ("Created At", invoice.created_at.isoformat()),
         ("Updated At", invoice.updated_at.isoformat()),
     ]
@@ -162,6 +153,11 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
     _style_header_row(metadata_sheet)
     for row in metadata_rows:
         metadata_sheet.append(list(row))
+        value_cell = metadata_sheet.cell(row=metadata_sheet.max_row, column=2)
+        if row[0] == "Tax Rate":
+            value_cell.number_format = PERCENT_FORMAT
+        elif isinstance(row[1], Decimal):
+            value_cell.number_format = MONEY_FORMAT
 
     lines_sheet.append(
         [
@@ -182,10 +178,12 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
                 line.item_id or "",
                 line.category_path_snapshot or "",
                 line.quantity,
-                str(line.unit_price_snapshot),
-                str(line.line_subtotal),
+                line.unit_price_snapshot,
+                line.line_subtotal,
             ]
         )
+        for cell in lines_sheet[lines_sheet.max_row][4:6]:
+            cell.number_format = MONEY_FORMAT
 
     for sheet in (metadata_sheet, lines_sheet):
         _auto_size_columns(sheet)
@@ -195,9 +193,8 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
     return invoice, output.getvalue()
 
 
-def _generate_invoice_number(db: Session) -> str:
-    next_id = (db.scalar(select(func.max(Invoice.id))) or 0) + 1
-    return f"INV-{next_id:06d}"
+def _format_invoice_number(invoice_id: int) -> str:
+    return f"INV-{invoice_id:06d}"
 
 
 def _to_money(value: Decimal | int) -> Decimal:

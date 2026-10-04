@@ -36,7 +36,7 @@ def list_items(
     statement = _base_items_statement()
 
     if search and search.strip():
-        statement = statement.where(Item.name.ilike(f"%{search.strip()}%"))
+        statement = statement.where(Item.name.icontains(search.strip(), autoescape=True))
 
     if category_id is not None:
         statement = statement.where(Item.category_id == category_id)
