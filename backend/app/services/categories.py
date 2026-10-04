@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.messages.category import CategoryCreate, CategoryDetailRead, CategoryTreeNode, CategoryUpdate
 from app.models.category import Category
 from app.models.item import Item
-from app.utils import BusinessRuleError, NotFoundError
+from app.utils import BusinessRuleError, ConflictError, NotFoundError
 
 
 def create_category(db: Session, payload: CategoryCreate) -> Category:
@@ -62,11 +62,11 @@ def delete_category(db: Session, category_id: int) -> None:
 
     has_children = db.scalar(select(Category.id).where(Category.parent_id == category_id).limit(1))
     if has_children is not None:
-        raise BusinessRuleError("Cannot delete a category that has child categories.")
+        raise ConflictError("Cannot delete a category that has child categories.")
 
     is_used_by_items = db.scalar(select(Item.id).where(Item.category_id == category_id).limit(1))
     if is_used_by_items is not None:
-        raise BusinessRuleError("Cannot delete a category that is assigned to items.")
+        raise ConflictError("Cannot delete a category that is assigned to items.")
 
     db.delete(category)
     db.commit()

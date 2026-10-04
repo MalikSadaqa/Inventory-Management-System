@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -13,7 +13,6 @@ from app.services.items import (
     list_items,
     update_item,
 )
-from app.utils import BusinessRuleError, NotFoundError
 
 
 router = APIRouter(prefix="/items", tags=["items"])
@@ -24,10 +23,7 @@ def create_item_endpoint(
     payload: ItemCreate,
     db: Session = Depends(get_db),
 ) -> ItemListItem:
-    try:
-        item = create_item(db, payload)
-    except BusinessRuleError as error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    item = create_item(db, payload)
 
     return ItemListItem.model_validate(item)
 
@@ -44,10 +40,7 @@ def list_items_endpoint(
 
 @router.get("/{item_id}", response_model=ItemDetail)
 def get_item_endpoint(item_id: int, db: Session = Depends(get_db)) -> ItemDetail:
-    try:
-        item = get_item_by_id(db, item_id)
-    except NotFoundError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    item = get_item_by_id(db, item_id)
 
     return build_item_detail(item)
 
@@ -58,23 +51,13 @@ def update_item_endpoint(
     payload: ItemUpdate,
     db: Session = Depends(get_db),
 ) -> ItemListItem:
-    try:
-        item = update_item(db, item_id, payload)
-    except NotFoundError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    except BusinessRuleError as error:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    item = update_item(db, item_id, payload)
 
     return ItemListItem.model_validate(item)
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item_endpoint(item_id: int, db: Session = Depends(get_db)) -> Response:
-    try:
-        delete_item(db, item_id)
-    except NotFoundError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    except BusinessRuleError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    delete_item(db, item_id)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

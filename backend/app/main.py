@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db import check_database_connection, init_db
@@ -13,6 +14,7 @@ from app.routers.customers import router as customers_router
 from app.routers.invoices import router as invoices_router
 from app.routers.items import router as items_router
 from app.routers.search import router as search_router
+from app.utils import AppError, BusinessRuleError, ConflictError, NotFoundError
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(_: Request, error: AppError) -> JSONResponse:
+    if isinstance(error, NotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+    elif isinstance(error, ConflictError):
+        status_code = status.HTTP_409_CONFLICT
+    elif isinstance(error, BusinessRuleError):
+        status_code = status.HTTP_400_BAD_REQUEST
+    else:
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    return JSONResponse(status_code=status_code, content={"detail": str(error)})
+
 
 app.include_router(customers_router)
 app.include_router(categories_router)

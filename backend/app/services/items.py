@@ -9,7 +9,7 @@ from app.models.category import Category
 from app.models.customer import Customer
 from app.models.invoice import Invoice
 from app.models.item import Item
-from app.utils import BusinessRuleError, NotFoundError
+from app.utils import BusinessRuleError, ConflictError, NotFoundError
 
 
 def create_item(db: Session, payload: ItemCreate) -> Item:
@@ -84,7 +84,7 @@ def delete_item(db: Session, item_id: int) -> None:
 
     is_used_in_invoices = db.scalar(select(InvoiceLine.id).where(InvoiceLine.item_id == item_id).limit(1))
     if is_used_in_invoices is not None:
-        raise BusinessRuleError("Cannot delete an item that is already used in invoices.")
+        raise ConflictError("Cannot delete an item that is already used in invoices.")
 
     db.delete(item)
     db.commit()

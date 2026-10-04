@@ -7,7 +7,7 @@ from app.messages.customer import CustomerCreate, CustomerUpdate
 from app.models.customer import Customer
 from app.models.invoice import Invoice
 from app.models.item import Item
-from app.utils import BusinessRuleError, NotFoundError
+from app.utils import BusinessRuleError, ConflictError, NotFoundError
 
 
 def create_customer(db: Session, payload: CustomerCreate) -> Customer:
@@ -71,7 +71,7 @@ def delete_customer(db: Session, customer_id: int) -> None:
         select(Invoice.id).where(Invoice.customer_id == customer_id).limit(1)
     )
     if is_used_in_invoices is not None:
-        raise BusinessRuleError("Cannot delete customer because it is referenced by invoices.")
+        raise ConflictError("Cannot delete customer because it is referenced by invoices.")
 
     is_used_in_item_tags = db.scalar(
         select(Item.id)
@@ -80,7 +80,7 @@ def delete_customer(db: Session, customer_id: int) -> None:
         .limit(1)
     )
     if is_used_in_item_tags is not None:
-        raise BusinessRuleError("Cannot delete customer because it is tagged on items.")
+        raise ConflictError("Cannot delete customer because it is tagged on items.")
 
     db.delete(customer)
     db.commit()

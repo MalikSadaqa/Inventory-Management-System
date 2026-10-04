@@ -23,6 +23,10 @@ class BusinessRuleError(AppError):
     pass
 
 
+class ConflictError(BusinessRuleError):
+    """A business rule blocks the operation because of related records."""
+
+
 def normalize_required_name(value: str) -> str:
     normalized = value.strip()
     if not normalized:
