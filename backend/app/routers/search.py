@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -14,7 +16,8 @@ router = APIRouter(prefix="/search", tags=["search"])
 
 @router.get("/invoice-lines", response_model=InvoiceLineSearchResponse)
 def search_invoice_lines_endpoint(
-    filters: InvoiceLineSearchQuery = Depends(),
+    # Query() validates the whole model with the request, so model validators return 422.
+    filters: Annotated[InvoiceLineSearchQuery, Query()],
     db: Session = Depends(get_db),
 ) -> InvoiceLineSearchResponse:
     try:
