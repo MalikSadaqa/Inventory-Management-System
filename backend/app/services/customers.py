@@ -30,7 +30,7 @@ def search_customers_by_name(db: Session, search: str) -> list[Customer]:
     normalized_search = search.strip()
     statement = (
         select(Customer)
-        .where(Customer.name.ilike(f"%{normalized_search}%"))
+        .where(Customer.name.icontains(normalized_search, autoescape=True))
         .order_by(Customer.name.asc(), Customer.id.asc())
     )
     return list(db.scalars(statement).all())

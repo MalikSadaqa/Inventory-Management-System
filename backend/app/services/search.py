@@ -59,13 +59,13 @@ def _apply_filters(statement, filters: InvoiceLineSearchQuery):
         statement = statement.where(InvoiceLine.item_id == filters.item_id)
 
     if filters.item_name:
-        statement = statement.where(InvoiceLine.item_name_snapshot.ilike(f"%{filters.item_name}%"))
+        statement = statement.where(InvoiceLine.item_name_snapshot.icontains(filters.item_name, autoescape=True))
 
     if filters.customer_name:
-        statement = statement.where(Customer.name.ilike(f"%{filters.customer_name}%"))
+        statement = statement.where(Customer.name.icontains(filters.customer_name, autoescape=True))
 
     if filters.customer_email:
-        statement = statement.where(Customer.email.ilike(f"%{filters.customer_email}%"))
+        statement = statement.where(Customer.email.icontains(filters.customer_email, autoescape=True))
 
     if filters.date_from:
         statement = statement.where(Invoice.invoice_date >= filters.date_from)
