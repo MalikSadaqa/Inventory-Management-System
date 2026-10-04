@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal, ROUND_HALF_UP
 from io import BytesIO
+from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -73,41 +74,29 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     tax_amount = _to_money(subtotal * TAX_RATE)
     total = _to_money(subtotal + tax_amount)
 
-    last_error: IntegrityError | None = None
-    for _ in range(3):
-        invoice = Invoice(
-            invoice_number=_generate_invoice_number(db),
-            customer_id=customer.id,
-            invoice_date=payload.invoice_date,
-            total_quantity=total_quantity,
-            subtotal=subtotal,
-            tax_rate=TAX_RATE,
-            tax_amount=tax_amount,
-            total=total,
-            lines=[
-                InvoiceLine(
-                    item_id=line.item_id,
-                    item_name_snapshot=line.item_name_snapshot,
-                    unit_price_snapshot=line.unit_price_snapshot,
-                    unit_cost_snapshot=line.unit_cost_snapshot,
-                    category_id_snapshot=line.category_id_snapshot,
-                    category_path_snapshot=line.category_path_snapshot,
-                    quantity=line.quantity,
-                    line_subtotal=line.line_subtotal,
-                )
-                for line in invoice_lines
-            ],
-        )
+    invoice = Invoice(
+        # Unique placeholder until the database assigns the id the real number is derived from.
+        invoice_number=uuid4().hex,
+        customer_id=customer.id,
+        invoice_date=payload.invoice_date,
+        total_quantity=total_quantity,
+        subtotal=subtotal,
+        tax_rate=TAX_RATE,
+        tax_amount=tax_amount,
+        total=total,
+        lines=invoice_lines,
+    )
 
-        try:
-            db.add(invoice)
-            db.commit()
-            return get_invoice_by_id(db, invoice.id)
-        except IntegrityError as error:
-            db.rollback()
-            last_error = error
+    try:
+        db.add(invoice)
+        db.flush()
+        invoice.invoice_number = _format_invoice_number(invoice.id)
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+        raise BusinessRuleError("Failed to create invoice.") from error
 
-    raise BusinessRuleError("Failed to generate a unique invoice number.") from last_error
+    return get_invoice_by_id(db, invoice.id)
 
 
 def list_invoices(db: Session) -> list[Invoice]:
@@ -195,9 +184,8 @@ def get_invoice_excel(db: Session, invoice_id: int) -> tuple[Invoice, bytes]:
     return invoice, output.getvalue()
 
 
-def _generate_invoice_number(db: Session) -> str:
-    next_id = (db.scalar(select(func.max(Invoice.id))) or 0) + 1
-    return f"INV-{next_id:06d}"
+def _format_invoice_number(invoice_id: int) -> str:
+    return f"INV-{invoice_id:06d}"
 
 
 def _to_money(value: Decimal | int) -> Decimal:
