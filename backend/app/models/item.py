@@ -43,7 +43,12 @@ class Item(Base):
     )
 
     category: Mapped["Category"] = relationship("Category", back_populates="items")
-    invoice_lines: Mapped[list["InvoiceLine"]] = relationship("InvoiceLine", back_populates="item")
+    # passive_deletes="all" stops the ORM from nulling item_id itself; the RESTRICT FK decides.
+    invoice_lines: Mapped[list["InvoiceLine"]] = relationship(
+        "InvoiceLine",
+        back_populates="item",
+        passive_deletes="all",
+    )
     tagged_customers: Mapped[list["Customer"]] = relationship(
         "Customer",
         secondary=item_customer_tags,

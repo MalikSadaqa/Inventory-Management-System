@@ -72,15 +72,7 @@ def delete_customer(db: Session, customer_id: int) -> None:
     if is_used_in_invoices is not None:
         raise ConflictError("Cannot delete customer because it is referenced by invoices.")
 
-    is_used_in_item_tags = db.scalar(
-        select(Item.id)
-        .join(Item.tagged_customers)
-        .where(Customer.id == customer_id)
-        .limit(1)
-    )
-    if is_used_in_item_tags is not None:
-        raise ConflictError("Cannot delete customer because it is tagged on items.")
-
+    # Item tags are only labels, so they are removed along with the customer.
     db.delete(customer)
     db.commit()
 

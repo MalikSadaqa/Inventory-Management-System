@@ -56,7 +56,7 @@ class InvoiceLine(Base):
         index=True,
     )
     item_id: Mapped[int | None] = mapped_column(
-        ForeignKey("items.id", ondelete="SET NULL"),
+        ForeignKey("items.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
     )

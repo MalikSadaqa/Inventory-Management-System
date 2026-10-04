@@ -130,7 +130,7 @@ function Customers() {
 
   const handleDelete = async (customer: CustomerListItem) => {
     const confirmed = window.confirm(
-      `Delete "${customer.name}"? Customers referenced by invoices cannot be deleted.`,
+      `Delete "${customer.name}"? Customers referenced by invoices cannot be deleted. Any item tags for this customer will be removed.`,
     )
     if (!confirmed) {
       return

@@ -14,7 +14,7 @@ class Category(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     parent_id: Mapped[int | None] = mapped_column(
-        ForeignKey("categories.id", ondelete="SET NULL"),
+        ForeignKey("categories.id", ondelete="RESTRICT"),
         nullable=True,
         index=True,
     )
@@ -35,8 +35,10 @@ class Category(Base):
         remote_side="Category.id",
         back_populates="children",
     )
+    # passive_deletes="all" stops the ORM from nulling parent_id itself; the RESTRICT FK decides.
     children: Mapped[list[Category]] = relationship(
         "Category",
         back_populates="parent",
+        passive_deletes="all",
     )
     items: Mapped[list["Item"]] = relationship("Item", back_populates="category")
