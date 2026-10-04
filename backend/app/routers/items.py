@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.messages.item import ItemCreate, ItemDetail, ItemListItem, ItemUpdate
+from app.messages.pagination import Page, PageParams
 from app.services.items import (
     build_item_detail,
     create_item,
@@ -28,14 +29,26 @@ def create_item_endpoint(
     return ItemListItem.model_validate(item)
 
 
-@router.get("", response_model=list[ItemListItem])
+@router.get("", response_model=Page[ItemListItem])
 def list_items_endpoint(
     search: str | None = Query(default=None, max_length=255),
     category_id: int | None = Query(default=None, ge=1),
+    paging: PageParams = Depends(),
     db: Session = Depends(get_db),
-) -> list[ItemListItem]:
-    items = list_items(db, search=search, category_id=category_id)
-    return [ItemListItem.model_validate(item) for item in items]
+) -> Page[ItemListItem]:
+    items, total = list_items(
+        db,
+        search=search,
+        category_id=category_id,
+        page=paging.page,
+        page_size=paging.page_size,
+    )
+    return Page(
+        items=[ItemListItem.model_validate(item) for item in items],
+        page=paging.page,
+        page_size=paging.page_size,
+        total=total,
+    )
 
 
 @router.get("/{item_id}", response_model=ItemDetail)

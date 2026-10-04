@@ -8,7 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.db import paginate
 from app.messages.invoice import InvoiceCreate
+from app.messages.pagination import DEFAULT_PAGE_SIZE
 from app.models.customer import Customer
 from app.models.invoice import Invoice, InvoiceLine
 from app.models.item import Item
@@ -101,13 +103,17 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
     return get_invoice_by_id(db, invoice.id)
 
 
-def list_invoices(db: Session) -> list[Invoice]:
+def list_invoices(
+    db: Session,
+    page: int = 1,
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> tuple[list[Invoice], int]:
     statement = (
         select(Invoice)
         .options(selectinload(Invoice.customer))
         .order_by(Invoice.invoice_date.desc(), Invoice.id.desc())
     )
-    return list(db.scalars(statement).all())
+    return paginate(db, statement, page, page_size)
 
 
 def get_invoice_by_id(db: Session, invoice_id: int) -> Invoice:

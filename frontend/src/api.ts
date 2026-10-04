@@ -1,3 +1,10 @@
+export type Page<T> = {
+  items: T[]
+  page: number
+  page_size: number
+  total: number
+}
+
 export type HealthResponse = {
   status: string
   database: string
@@ -239,15 +246,29 @@ export async function getHealth(): Promise<HealthResponse> {
   return parseJsonResponse<HealthResponse>(response)
 }
 
-export async function getCustomers(search?: string): Promise<CustomerListItem[]> {
+function setPageParams(query: URLSearchParams, page?: number, pageSize?: number) {
+  if (page && page > 1) {
+    query.set('page', String(page))
+  }
+  if (pageSize) {
+    query.set('page_size', String(pageSize))
+  }
+}
+
+export async function getCustomers(
+  search?: string,
+  page?: number,
+  pageSize?: number,
+): Promise<Page<CustomerListItem>> {
   const query = new URLSearchParams()
   if (search?.trim()) {
     query.set('search', search.trim())
   }
+  setPageParams(query, page, pageSize)
 
   const suffix = query.size > 0 ? `?${query.toString()}` : ''
   const response = await fetch(`${API_BASE_URL}/customers${suffix}`)
-  return parseJsonResponse<CustomerListItem[]>(response)
+  return parseJsonResponse<Page<CustomerListItem>>(response)
 }
 
 export async function getCustomer(customerId: number): Promise<CustomerDetail> {
@@ -353,7 +374,9 @@ export async function deleteCategory(categoryId: number): Promise<void> {
 export async function getItems(
   search?: string,
   categoryId?: number | null,
-): Promise<ItemListItem[]> {
+  page?: number,
+  pageSize?: number,
+): Promise<Page<ItemListItem>> {
   const query = new URLSearchParams()
   if (search?.trim()) {
     query.set('search', search.trim())
@@ -361,10 +384,11 @@ export async function getItems(
   if (categoryId) {
     query.set('category_id', String(categoryId))
   }
+  setPageParams(query, page, pageSize)
 
   const suffix = query.size > 0 ? `?${query.toString()}` : ''
   const response = await fetch(`${API_BASE_URL}/items${suffix}`)
-  return parseJsonResponse<ItemListItem[]>(response)
+  return parseJsonResponse<Page<ItemListItem>>(response)
 }
 
 export async function getItem(itemId: number): Promise<ItemDetail> {
@@ -409,9 +433,13 @@ export async function deleteItem(itemId: number): Promise<void> {
   }
 }
 
-export async function getInvoices(): Promise<InvoiceSummary[]> {
-  const response = await fetch(`${API_BASE_URL}/invoices`)
-  return parseJsonResponse<InvoiceSummary[]>(response)
+export async function getInvoices(page?: number, pageSize?: number): Promise<Page<InvoiceSummary>> {
+  const query = new URLSearchParams()
+  setPageParams(query, page, pageSize)
+
+  const suffix = query.size > 0 ? `?${query.toString()}` : ''
+  const response = await fetch(`${API_BASE_URL}/invoices${suffix}`)
+  return parseJsonResponse<Page<InvoiceSummary>>(response)
 }
 
 export async function getInvoice(invoiceId: number): Promise<InvoiceDetail> {

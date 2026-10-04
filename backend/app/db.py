@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import create_engine, inspect, text
+from typing import Any
+
+from sqlalchemy import Select, create_engine, func, inspect, select, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.engine import Engine
 
@@ -24,6 +26,12 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+def paginate(db: Session, statement: Select, page: int, page_size: int) -> tuple[list[Any], int]:
+    total = db.scalar(select(func.count()).select_from(statement.order_by(None).subquery())) or 0
+    rows = db.scalars(statement.offset((page - 1) * page_size).limit(page_size)).all()
+    return list(rows), total
 
 
 def init_db() -> None:

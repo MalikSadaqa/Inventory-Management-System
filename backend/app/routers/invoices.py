@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.messages.invoice import InvoiceCreate, InvoiceDetailRead, InvoiceSummaryRead
+from app.messages.pagination import Page, PageParams
 from app.services.invoices import (
     create_invoice,
     get_invoice_by_id,
@@ -27,10 +28,18 @@ def create_invoice_endpoint(
     return InvoiceDetailRead.model_validate(invoice)
 
 
-@router.get("", response_model=list[InvoiceSummaryRead])
-def list_invoices_endpoint(db: Session = Depends(get_db)) -> list[InvoiceSummaryRead]:
-    invoices = list_invoices(db)
-    return [InvoiceSummaryRead.model_validate(invoice) for invoice in invoices]
+@router.get("", response_model=Page[InvoiceSummaryRead])
+def list_invoices_endpoint(
+    paging: PageParams = Depends(),
+    db: Session = Depends(get_db),
+) -> Page[InvoiceSummaryRead]:
+    invoices, total = list_invoices(db, page=paging.page, page_size=paging.page_size)
+    return Page(
+        items=[InvoiceSummaryRead.model_validate(invoice) for invoice in invoices],
+        page=paging.page,
+        page_size=paging.page_size,
+        total=total,
+    )
 
 
 @router.get("/{invoice_id}", response_model=InvoiceDetailRead)

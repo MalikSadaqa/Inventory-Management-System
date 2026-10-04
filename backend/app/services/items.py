@@ -3,7 +3,9 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.db import paginate
 from app.messages.item import ItemCreate, ItemDetail, ItemUpdate
+from app.messages.pagination import DEFAULT_PAGE_SIZE
 from app.models.invoice import InvoiceLine
 from app.models.category import Category
 from app.models.customer import Customer
@@ -32,7 +34,9 @@ def list_items(
     db: Session,
     search: str | None = None,
     category_id: int | None = None,
-) -> list[Item]:
+    page: int = 1,
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> tuple[list[Item], int]:
     # The list response only exposes item columns, so skip the detail eager loads.
     statement = select(Item)
 
@@ -43,11 +47,7 @@ def list_items(
         statement = statement.where(Item.category_id == category_id)
 
     statement = statement.order_by(Item.name.asc(), Item.id.asc())
-    return list(db.scalars(statement).all())
-
-
-def search_items(db: Session, search: str) -> list[Item]:
-    return list_items(db, search=search)
+    return paginate(db, statement, page, page_size)
 
 
 def get_item_by_id(db: Session, item_id: int) -> Item:

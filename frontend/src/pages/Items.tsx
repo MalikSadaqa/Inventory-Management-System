@@ -3,6 +3,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import CategoryTreePicker from '../components/CategoryTreePicker'
 import CustomerTagPicker from '../components/CustomerTagPicker'
 import HelpTooltip from '../components/HelpTooltip'
+import PaginationControls from '../components/PaginationControls'
 import {
   createItem,
   deleteItem,
@@ -51,6 +52,9 @@ function flattenLeaves(nodes: CategoryTreeNode[]): Array<{ id: number; label: st
 
 function Items() {
   const [items, setItems] = useState<ItemListItem[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [total, setTotal] = useState(0)
   const [tree, setTree] = useState<CategoryTreeNode[]>([])
   const [state, setState] = useState<LoadState>('loading')
   const [searchInput, setSearchInput] = useState('')
@@ -75,13 +79,24 @@ function Items() {
     }
   }
 
-  const loadItems = async (search = deferredSearch, selectedCategoryId = categoryFilter) => {
+  const loadItems = async (
+    search = deferredSearch,
+    selectedCategoryId = categoryFilter,
+    currentPage = page,
+  ) => {
     setState('loading')
     setError(null)
 
     try {
-      const response = await getItems(search, selectedCategoryId)
-      setItems(response)
+      const response = await getItems(search, selectedCategoryId, currentPage)
+      if (response.items.length === 0 && currentPage > 1) {
+        // The last row on this page was deleted; step back to a page that has rows.
+        setPage(currentPage - 1)
+        return
+      }
+      setItems(response.items)
+      setPageSize(response.page_size)
+      setTotal(response.total)
       setState('success')
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Failed to load items.')
@@ -91,7 +106,7 @@ function Items() {
 
   useEffect(() => {
     void loadItems()
-  }, [deferredSearch, categoryFilter])
+  }, [deferredSearch, categoryFilter, page])
 
   useEffect(() => {
     void loadTree()
@@ -207,7 +222,8 @@ function Items() {
   }
 
   const loadCustomersForTags = async (search: string) => {
-    return getCustomers(search)
+    const response = await getCustomers(search)
+    return response.items
   }
 
   return (
@@ -247,13 +263,19 @@ function Items() {
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <input
                 value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
+                onChange={(event) => {
+                  setSearchInput(event.target.value)
+                  setPage(1)
+                }}
                 placeholder="Search by item name"
                 style={filterFieldStyle}
               />
               <select
                 value={categoryFilter ?? ''}
-                onChange={(event) => setCategoryFilter(event.target.value ? Number(event.target.value) : null)}
+                onChange={(event) => {
+                  setCategoryFilter(event.target.value ? Number(event.target.value) : null)
+                  setPage(1)
+                }}
                 style={filterFieldStyle}
               >
                 <option value="">All categories</option>
@@ -273,66 +295,74 @@ function Items() {
           )}
 
           {state === 'success' && items.length > 0 && (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={headerCellStyle}>Name</th>
-                    <th style={headerCellStyle}>Price</th>
-                    <th style={headerCellStyle}>Cost</th>
-                    <th style={headerCellStyle}>Updated</th>
-                    <th style={headerCellStyle}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={bodyCellStyle}>
-                        <a
-                          href={`/items/${item.id}`}
-                          onClick={(event) => {
-                            event.preventDefault()
-                            navigateTo(`/items/${item.id}`)
-                          }}
-                          style={primaryLinkStyle}
-                        >
-                          {item.name}
-                        </a>
-                      </td>
-                      <td style={bodyCellStyle}>{formatMoney(item.price)}</td>
-                      <td style={bodyCellStyle}>{formatMoney(item.cost)}</td>
-                      <td style={{ ...bodyCellStyle, color: '#475569' }}>
-                        {formatDateTime(item.updated_at)}
-                      </td>
-                      <td style={bodyCellStyle}>
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                      <th style={headerCellStyle}>Name</th>
+                      <th style={headerCellStyle}>Price</th>
+                      <th style={headerCellStyle}>Cost</th>
+                      <th style={headerCellStyle}>Updated</th>
+                      <th style={headerCellStyle}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={bodyCellStyle}>
                           <a
                             href={`/items/${item.id}`}
                             onClick={(event) => {
                               event.preventDefault()
                               navigateTo(`/items/${item.id}`)
                             }}
-                            style={actionLinkStyle}
+                            style={primaryLinkStyle}
                           >
-                            View
+                            {item.name}
                           </a>
-                          <button type="button" onClick={() => void handleEdit(item)} style={plainButtonStyle}>
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(item)}
-                            style={{ ...plainButtonStyle, color: '#b91c1c' }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </td>
+                        <td style={bodyCellStyle}>{formatMoney(item.price)}</td>
+                        <td style={bodyCellStyle}>{formatMoney(item.cost)}</td>
+                        <td style={{ ...bodyCellStyle, color: '#475569' }}>
+                          {formatDateTime(item.updated_at)}
+                        </td>
+                        <td style={bodyCellStyle}>
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            <a
+                              href={`/items/${item.id}`}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                navigateTo(`/items/${item.id}`)
+                              }}
+                              style={actionLinkStyle}
+                            >
+                              View
+                            </a>
+                            <button type="button" onClick={() => void handleEdit(item)} style={plainButtonStyle}>
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(item)}
+                              style={{ ...plainButtonStyle, color: '#b91c1c' }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </div>
 

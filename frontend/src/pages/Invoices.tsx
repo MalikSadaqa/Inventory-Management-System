@@ -12,6 +12,7 @@ import {
 } from '../api'
 import EntityAutocomplete, { type AutocompleteOption } from '../components/EntityAutocomplete'
 import HelpTooltip from '../components/HelpTooltip'
+import PaginationControls from '../components/PaginationControls'
 import InvoiceLineEditor, {
   type InvoiceItemOption,
   type InvoiceLineDraft,
@@ -63,6 +64,10 @@ function mapItemOption(item: ItemListItem): InvoiceItemOption {
 
 function Invoices() {
   const [invoices, setInvoices] = useState<InvoiceSummary[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [total, setTotal] = useState(0)
+  const [reloadKey, setReloadKey] = useState(0)
   const [invoiceState, setInvoiceState] = useState<LoadState>('loading')
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null)
@@ -79,9 +84,11 @@ function Invoices() {
       setInvoiceError(null)
 
       try {
-        const response = await getInvoices()
+        const response = await getInvoices(page)
         if (!cancelled) {
-          setInvoices(response)
+          setInvoices(response.items)
+          setPageSize(response.page_size)
+          setTotal(response.total)
           setInvoiceState('success')
         }
       } catch (loadError) {
@@ -97,16 +104,16 @@ function Invoices() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [page, reloadKey])
 
   const customerLoader = useCallback(async (search: string) => {
     const response = await getCustomers(search)
-    return response.map(mapCustomerOption)
+    return response.items.map(mapCustomerOption)
   }, [])
 
   const itemLoader = useCallback(async (search: string) => {
     const response = await getItems(search)
-    return response.map(mapItemOption)
+    return response.items.map(mapItemOption)
   }, [])
 
   const totals = useMemo(() => {
@@ -210,9 +217,9 @@ function Invoices() {
 
     try {
       const createdInvoice = await createInvoice(payload)
-      const refreshedInvoices = await getInvoices()
-      setInvoices(refreshedInvoices)
-      setInvoiceState('success')
+      // Newest invoices sort first, so show page 1 when returning to the list.
+      setPage(1)
+      setReloadKey((current) => current + 1)
       resetForm()
       navigateTo(`/invoices/${createdInvoice.id}`)
     } catch (submitError) {
@@ -473,6 +480,14 @@ function Invoices() {
                 </div>
               </a>
             ))}
+          {invoiceState === 'success' && invoices.length > 0 && (
+            <PaginationControls
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+            />
+          )}
         </div>
       </div>
     </section>

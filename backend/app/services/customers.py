@@ -3,7 +3,9 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.db import paginate
 from app.messages.customer import CustomerCreate, CustomerUpdate
+from app.messages.pagination import DEFAULT_PAGE_SIZE
 from app.models.customer import Customer
 from app.models.invoice import Invoice
 from app.models.item import Item
@@ -18,22 +20,19 @@ def create_customer(db: Session, payload: CustomerCreate) -> Customer:
     return customer
 
 
-def list_customers(db: Session, search: str | None = None) -> list[Customer]:
-    if search:
-        return search_customers_by_name(db, search)
+def list_customers(
+    db: Session,
+    search: str | None = None,
+    page: int = 1,
+    page_size: int = DEFAULT_PAGE_SIZE,
+) -> tuple[list[Customer], int]:
+    statement = select(Customer)
 
-    statement = select(Customer).order_by(Customer.name.asc(), Customer.id.asc())
-    return list(db.scalars(statement).all())
+    if search and search.strip():
+        statement = statement.where(Customer.name.icontains(search.strip(), autoescape=True))
 
-
-def search_customers_by_name(db: Session, search: str) -> list[Customer]:
-    normalized_search = search.strip()
-    statement = (
-        select(Customer)
-        .where(Customer.name.icontains(normalized_search, autoescape=True))
-        .order_by(Customer.name.asc(), Customer.id.asc())
-    )
-    return list(db.scalars(statement).all())
+    statement = statement.order_by(Customer.name.asc(), Customer.id.asc())
+    return paginate(db, statement, page, page_size)
 
 
 def get_customer_by_id(db: Session, customer_id: int) -> Customer:

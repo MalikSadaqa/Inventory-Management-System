@@ -21,6 +21,7 @@ import {
 } from '../api'
 import EntityAutocomplete, { type AutocompleteOption } from '../components/EntityAutocomplete'
 import HelpTooltip from '../components/HelpTooltip'
+import PaginationControls from '../components/PaginationControls'
 import { formatDate, formatMoney, navigateTo } from '../utils'
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error'
@@ -113,12 +114,12 @@ function InvoiceLineSearch() {
 
   const loadItemOptions = useCallback(async (search: string) => {
     const response = await getItems(search)
-    return response.map((item) => mapAutocompleteOption(item))
+    return response.items.map((item) => mapAutocompleteOption(item))
   }, [])
 
   const loadCustomerOptions = useCallback(async (search: string) => {
     const response = await getCustomers(search)
-    return response.map((customer) => mapAutocompleteOption(customer))
+    return response.items.map((customer) => mapAutocompleteOption(customer))
   }, [])
 
   const handleApplyFilters = useCallback((nextFilters: SearchFilters) => {
@@ -356,14 +357,6 @@ const ResultsPanel = memo(function ResultsPanel({ filters }: { filters: SearchFi
     })
   }, [])
 
-  const handlePreviousPage = useCallback(() => {
-    setPage((current) => Math.max(1, current - 1))
-  }, [])
-
-  const handleNextPage = useCallback(() => {
-    setPage((current) => Math.min(totalPages, current + 1))
-  }, [totalPages])
-
   const renderedRows = useMemo(
     () => (results ? results.items.map((row) => <SearchResultRow key={row.invoice_line_id} row={row} />) : null),
     [results],
@@ -411,9 +404,7 @@ const ResultsPanel = memo(function ResultsPanel({ filters }: { filters: SearchFi
             page={results.page}
             pageSize={results.page_size}
             total={results.total}
-            totalPages={totalPages}
-            onPrevious={handlePreviousPage}
-            onNext={handleNextPage}
+            onPageChange={setPage}
           />
         </>
       )}
@@ -459,56 +450,6 @@ const ResultsTable = memo(function ResultsTable({
         </thead>
         <tbody>{rows}</tbody>
       </table>
-    </div>
-  )
-})
-
-const PaginationControls = memo(function PaginationControls({
-  page,
-  pageSize,
-  total,
-  totalPages,
-  onPrevious,
-  onNext,
-}: {
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-  onPrevious: () => void
-  onNext: () => void
-}) {
-  return (
-    <div style={paginationBarStyle}>
-      <div style={filterSummaryStyle}>
-        Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}
-      </div>
-      <div style={buttonRowStyle}>
-        <button
-          type="button"
-          disabled={page <= 1}
-          onClick={onPrevious}
-          style={{
-            ...secondaryButtonStyle,
-            opacity: page <= 1 ? 0.55 : 1,
-            cursor: page <= 1 ? 'not-allowed' : 'pointer',
-          }}
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          disabled={page >= totalPages}
-          onClick={onNext}
-          style={{
-            ...primaryButtonStyle,
-            opacity: page >= totalPages ? 0.55 : 1,
-            cursor: page >= totalPages ? 'not-allowed' : 'pointer',
-          }}
-        >
-          Next
-        </button>
-      </div>
     </div>
   )
 })
@@ -766,17 +707,6 @@ const tableHeaderRowStyle: CSSProperties = {
 const tableBodyRowStyle: CSSProperties = {
   borderBottom: '1px solid #f1f5f9',
   cursor: 'pointer',
-}
-
-const paginationBarStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  gap: '16px',
-  alignItems: 'center',
-  flexWrap: 'wrap',
-  marginTop: '16px',
-  borderTop: '1px solid #e2e8f0',
-  paddingTop: '16px',
 }
 
 const headerCellStyle: CSSProperties = {

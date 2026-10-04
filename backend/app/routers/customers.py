@@ -10,6 +10,7 @@ from app.messages.customer import (
     CustomerListItem,
     CustomerUpdate,
 )
+from app.messages.pagination import Page, PageParams
 from app.services.customers import (
     create_customer,
     delete_customer,
@@ -33,13 +34,19 @@ def create_customer_endpoint(
     return CustomerListItem.model_validate(customer)
 
 
-@router.get("", response_model=list[CustomerListItem])
+@router.get("", response_model=Page[CustomerListItem])
 def list_customers_endpoint(
     search: str | None = Query(default=None, max_length=255),
+    paging: PageParams = Depends(),
     db: Session = Depends(get_db),
-) -> list[CustomerListItem]:
-    customers = list_customers(db, search=search)
-    return [CustomerListItem.model_validate(customer) for customer in customers]
+) -> Page[CustomerListItem]:
+    customers, total = list_customers(db, search=search, page=paging.page, page_size=paging.page_size)
+    return Page(
+        items=[CustomerListItem.model_validate(customer) for customer in customers],
+        page=paging.page,
+        page_size=paging.page_size,
+        total=total,
+    )
 
 
 @router.get("/{customer_id}", response_model=CustomerDetail)

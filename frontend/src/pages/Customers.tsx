@@ -9,6 +9,7 @@ import {
   type CustomerPayload,
 } from '../api'
 import HelpTooltip from '../components/HelpTooltip'
+import PaginationControls from '../components/PaginationControls'
 import { formatDateTime, navigateTo } from '../utils'
 
 type LoadState = 'idle' | 'loading' | 'success' | 'error'
@@ -27,6 +28,10 @@ const emptyFormState: FormState = {
 
 function Customers() {
   const [customers, setCustomers] = useState<CustomerListItem[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [total, setTotal] = useState(0)
+  const [reloadKey, setReloadKey] = useState(0)
   const [loadState, setLoadState] = useState<LoadState>('loading')
   const [searchInput, setSearchInput] = useState('')
   const deferredSearch = useDeferredValue(searchInput)
@@ -44,11 +49,19 @@ function Customers() {
       setError(null)
 
       try {
-        const response = await getCustomers(deferredSearch)
-        if (!cancelled) {
-          setCustomers(response)
-          setLoadState('success')
+        const response = await getCustomers(deferredSearch, page)
+        if (cancelled) {
+          return
         }
+        if (response.items.length === 0 && page > 1) {
+          // The last row on this page was deleted; step back to a page that has rows.
+          setPage(page - 1)
+          return
+        }
+        setCustomers(response.items)
+        setPageSize(response.page_size)
+        setTotal(response.total)
+        setLoadState('success')
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : 'Failed to load customers.')
@@ -62,7 +75,7 @@ function Customers() {
     return () => {
       cancelled = true
     }
-  }, [deferredSearch])
+  }, [deferredSearch, page, reloadKey])
 
   const resetForm = () => {
     setFormState(emptyFormState)
@@ -105,9 +118,7 @@ function Customers() {
       }
 
       resetForm()
-      const refreshedCustomers = await getCustomers(deferredSearch)
-      setCustomers(refreshedCustomers)
-      setLoadState('success')
+      setReloadKey((current) => current + 1)
     } catch (submitError) {
       setFormError(
         submitError instanceof Error ? submitError.message : 'Failed to save customer.',
@@ -133,9 +144,7 @@ function Customers() {
         resetForm()
       }
 
-      const refreshedCustomers = await getCustomers(deferredSearch)
-      setCustomers(refreshedCustomers)
-      setLoadState('success')
+      setReloadKey((current) => current + 1)
     } catch (deleteError) {
       setFormError(
         deleteError instanceof Error ? deleteError.message : 'Failed to delete customer.',
@@ -182,7 +191,10 @@ function Customers() {
             </div>
             <input
               value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
+              onChange={(event) => {
+                setSearchInput(event.target.value)
+                setPage(1)
+              }}
               placeholder="Search by name"
               style={{
                 width: '280px',
@@ -215,92 +227,100 @@ function Customers() {
           )}
 
           {loadState === 'success' && customers.length > 0 && (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ padding: '12px 8px' }}>Name</th>
-                    <th style={{ padding: '12px 8px' }}>Email</th>
-                    <th style={{ padding: '12px 8px' }}>Phone</th>
-                    <th style={{ padding: '12px 8px' }}>Updated</th>
-                    <th style={{ padding: '12px 8px' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customers.map((customer) => (
-                    <tr key={customer.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '14px 8px' }}>
-                        <a
-                          href={`/customers/${customer.id}`}
-                          onClick={(event) => {
-                            event.preventDefault()
-                            navigateTo(`/customers/${customer.id}`)
-                          }}
-                          style={{
-                            color: '#0f172a',
-                            textDecoration: 'none',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {customer.name}
-                        </a>
-                      </td>
-                      <td style={{ padding: '14px 8px', color: '#475569' }}>
-                        {customer.email || 'No email'}
-                      </td>
-                      <td style={{ padding: '14px 8px', color: '#475569' }}>
-                        {customer.phone || 'No phone'}
-                      </td>
-                      <td style={{ padding: '14px 8px', color: '#475569' }}>
-                        {formatDateTime(customer.updated_at)}
-                      </td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                      <th style={{ padding: '12px 8px' }}>Name</th>
+                      <th style={{ padding: '12px 8px' }}>Email</th>
+                      <th style={{ padding: '12px 8px' }}>Phone</th>
+                      <th style={{ padding: '12px 8px' }}>Updated</th>
+                      <th style={{ padding: '12px 8px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.map((customer) => (
+                      <tr key={customer.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '14px 8px' }}>
                           <a
                             href={`/customers/${customer.id}`}
                             onClick={(event) => {
                               event.preventDefault()
                               navigateTo(`/customers/${customer.id}`)
                             }}
-                            style={{ color: '#0f766e', fontWeight: 600, textDecoration: 'none' }}
+                            style={{
+                              color: '#0f172a',
+                              textDecoration: 'none',
+                              fontWeight: 600,
+                            }}
                           >
-                            View
+                            {customer.name}
                           </a>
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(customer)}
-                            style={{
-                              border: 'none',
-                              padding: 0,
-                              background: 'none',
-                              color: '#0369a1',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleDelete(customer)}
-                            style={{
-                              border: 'none',
-                              padding: 0,
-                              background: 'none',
-                              color: '#b91c1c',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </td>
+                        <td style={{ padding: '14px 8px', color: '#475569' }}>
+                          {customer.email || 'No email'}
+                        </td>
+                        <td style={{ padding: '14px 8px', color: '#475569' }}>
+                          {customer.phone || 'No phone'}
+                        </td>
+                        <td style={{ padding: '14px 8px', color: '#475569' }}>
+                          {formatDateTime(customer.updated_at)}
+                        </td>
+                        <td style={{ padding: '14px 8px' }}>
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                            <a
+                              href={`/customers/${customer.id}`}
+                              onClick={(event) => {
+                                event.preventDefault()
+                                navigateTo(`/customers/${customer.id}`)
+                              }}
+                              style={{ color: '#0f766e', fontWeight: 600, textDecoration: 'none' }}
+                            >
+                              View
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => handleEdit(customer)}
+                              style={{
+                                border: 'none',
+                                padding: 0,
+                                background: 'none',
+                                color: '#0369a1',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDelete(customer)}
+                              style={{
+                                border: 'none',
+                                padding: 0,
+                                background: 'none',
+                                color: '#b91c1c',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                onPageChange={setPage}
+              />
+            </>
           )}
         </div>
 
