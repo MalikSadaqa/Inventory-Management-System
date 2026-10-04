@@ -1,3 +1,5 @@
+import { formatErrorDetail } from './errorMessages'
+
 export type Page<T> = {
   items: T[]
   page: number
@@ -219,10 +221,8 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
     let message = `Request failed with status ${response.status}.`
 
     try {
-      const payload = (await response.json()) as { detail?: string }
-      if (payload.detail) {
-        message = payload.detail
-      }
+      const payload = (await response.json()) as { detail?: unknown }
+      message = formatErrorDetail(payload.detail) ?? message
     } catch {
       // Ignore JSON parsing failures and keep the default message.
     }
