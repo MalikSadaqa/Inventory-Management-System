@@ -12,6 +12,18 @@
 3. Frontend:
    `cd frontend && npm install && VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev`
 
+## Run Tests
+
+Backend tests run in Docker against a separate `printing_app_test` database in the Compose Postgres, so your dev data is never touched:
+
+```
+docker compose run --rm backend-tests
+```
+
+- `backend/` is mounted into the container, so code and test edits apply without rebuilding. Rebuild with `docker compose build backend-tests` after changing `requirements*.txt`.
+- Pass pytest arguments after the service name, e.g. `docker compose run --rm backend-tests pytest tests/test_invoices.py -k totals`.
+- Each test runs in a transaction that is rolled back, so tests are independent and the test database stays empty.
+
 ## Included Features
 
 - Customers with name, email, and optional phone

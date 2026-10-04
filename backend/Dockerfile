@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.13-slim AS base
 
 WORKDIR /app
 
@@ -24,6 +24,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY .env.example ./.env.example
+
+
+# Test image: run with `docker compose run --rm backend-tests`.
+FROM base AS test
+
+COPY requirements-dev.txt .
+RUN pip install --no-cache-dir -r requirements-dev.txt
+
+COPY tests ./tests
+COPY pytest.ini .
+
+CMD ["pytest"]
+
+
+# Runtime image (default target, so it stays the last stage).
+FROM base AS runtime
 
 EXPOSE 8000
 
