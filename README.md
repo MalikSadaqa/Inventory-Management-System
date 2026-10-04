@@ -12,6 +12,10 @@
 3. Frontend:
    `cd frontend && npm install && VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev`
 
+## Deploy
+
+See [DEPLOY.md](DEPLOY.md): a Hetzner server running `docker-compose.prod.yml`, served at https://portal.chocolate-design.com through a Cloudflare Tunnel with Cloudflare Access login.
+
 ## Run Tests
 
 Backend tests run in Docker against a separate `printing_app_test` database in the Compose Postgres, so your dev data is never touched:

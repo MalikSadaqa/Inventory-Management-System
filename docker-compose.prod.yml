@@ -1,0 +1,89 @@
+# Production stack. Run on the server with:
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Settings come from .env next to this file (copy .env.prod.example). See DEPLOY.md.
+#
+# Nothing here publishes a port: visitors arrive through the Cloudflare Tunnel
+# (cloudflared -> frontend:80), and nginx forwards /api to the backend.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-printing_app}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_NAME: Chocolate Design API
+      POSTGRES_DB: ${POSTGRES_DB:-printing_app}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      CORS_ORIGINS: https://${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    # --root-path lets the API docs work behind nginx's /api prefix (https://<domain>/api/docs).
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --root-path /api --proxy-headers
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    depends_on:
+      - frontend
+
+  # Nightly compressed database dump into ./backups, keeping the last 14 days.
+  db-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-printing_app}
+      PGUSER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          file=/backups/$${PGDATABASE}-$$(date +%Y%m%d-%H%M%S).sql.gz
+          if pg_dump --no-owner | gzip > "$$file"; then
+            echo "backup written: $$file"
+          else
+            echo "backup FAILED" >&2; rm -f "$$file"
+          fi
+          find /backups -name '*.sql.gz' -mtime +14 -delete
+          sleep 86400
+        done
+
+volumes:
+  postgres_data:
